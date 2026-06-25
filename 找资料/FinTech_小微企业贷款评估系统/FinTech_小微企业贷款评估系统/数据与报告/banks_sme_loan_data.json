@@ -1,0 +1,629 @@
+{
+  "metadata": {
+    "description": "中国银行业小微企业贷款产品结构化数据 - 用于FinTech自评与银行匹配系统",
+    "version": "1.0",
+    "date": "2026-06-20",
+    "total_banks": 28,
+    "data_sources": ["央行普惠金融报告2024-2025", "银行官网", "行业媒体报道", "学术论文"]
+  },
+  "banks": [
+    {
+      "id": "icbc",
+      "name": "工商银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "经营快贷",
+      "loan_type": "信用+抵押",
+      "max_amount_credit": 300,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 2.45,
+      "max_interest_rate": 3.00,
+      "max_term_years": 10,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "tax_level_required": ["A", "B", "M"],
+        "min_annual_tax_wan": 2,
+        "credit_inquiry_strict": true,
+        "need_corporate_account": true
+      },
+      "preferences": {
+        "collateral_weight": 0.30,
+        "cashflow_weight": 0.25,
+        "credit_weight": 0.25,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "high",
+        "no_collateral": "medium",
+        "industry_restriction": "high"
+      },
+      "target_enterprise": "成立时间长、纳税规范、征信优良的小微企业",
+      "estimated_approval_rate": 0.55
+    },
+    {
+      "id": "ccb",
+      "name": "建设银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "惠懂你/抵押快贷/云税贷",
+      "loan_type": "信用+抵押组合",
+      "max_amount_credit": 500,
+      "max_amount_mortgage": 1000,
+      "min_interest_rate": 2.40,
+      "max_interest_rate": 5.00,
+      "max_term_years": 10,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "min_business_years_tax_loan": 2,
+        "tax_level_required": ["A", "B", "M"],
+        "min_annual_tax_wan": 0.5,
+        "max_overdue_times": 6,
+        "accepts_alipay_wechat_flow": true,
+        "individual_under_50w_to_personal_account": true
+      },
+      "preferences": {
+        "collateral_weight": 0.25,
+        "cashflow_weight": 0.30,
+        "credit_weight": 0.25,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "medium",
+        "no_collateral": "low",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "个体户、轻资产小微企业、科创企业",
+      "estimated_approval_rate": 0.62
+    },
+    {
+      "id": "abc",
+      "name": "农业银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "普惠小微贷",
+      "loan_type": "信用+抵押",
+      "max_amount_credit": 300,
+      "max_amount_mortgage": 300,
+      "min_interest_rate": 2.35,
+      "max_interest_rate": 2.55,
+      "max_term_years": 10,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "need_field_inspection": true,
+        "business_must_be_local": true,
+        "focus_on_cashflow": true
+      },
+      "preferences": {
+        "collateral_weight": 0.30,
+        "cashflow_weight": 0.35,
+        "credit_weight": 0.20,
+        "tax_weight": 0.15
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "medium",
+        "no_collateral": "medium",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "本地有固定经营场所的实体小微企业",
+      "estimated_approval_rate": 0.58
+    },
+    {
+      "id": "boc",
+      "name": "中国银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "银税贷/经营贷",
+      "loan_type": "信用为主",
+      "max_amount_credit": 500,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 3.05,
+      "max_interest_rate": 3.60,
+      "max_term_years": 3,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 2,
+        "tax_level_required": ["A", "B"],
+        "strict_compliance_check": true,
+        "good_credit_required": true
+      },
+      "preferences": {
+        "collateral_weight": 0.20,
+        "cashflow_weight": 0.25,
+        "credit_weight": 0.30,
+        "tax_weight": 0.25
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "high",
+        "no_collateral": "low",
+        "industry_restriction": "high"
+      },
+      "target_enterprise": "稳健经营的成熟小微企业",
+      "estimated_approval_rate": 0.50
+    },
+    {
+      "id": "bocomm",
+      "name": "交通银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "个人经营性贷款",
+      "loan_type": "抵押+信用",
+      "max_amount_credit": 500,
+      "max_amount_mortgage": 1000,
+      "min_interest_rate": 2.20,
+      "max_interest_rate": 3.00,
+      "max_term_years": 10,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 2,
+        "high_asset_requirement": true,
+        "high_cashflow_requirement": true,
+        "good_credit_required": true
+      },
+      "preferences": {
+        "collateral_weight": 0.40,
+        "cashflow_weight": 0.25,
+        "credit_weight": 0.20,
+        "tax_weight": 0.15
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "high",
+        "no_collateral": "high",
+        "industry_restriction": "high"
+      },
+      "target_enterprise": "有优质资产的较大规模小微企业",
+      "estimated_approval_rate": 0.40
+    },
+    {
+      "id": "psbc",
+      "name": "邮储银行",
+      "type": "国有大型商业银行",
+      "tier": 1,
+      "product_name": "小微经营贷",
+      "loan_type": "信用为主",
+      "max_amount_credit": 200,
+      "max_amount_mortgage": 200,
+      "min_interest_rate": 3.05,
+      "max_interest_rate": 4.00,
+      "max_term_years": 8,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 0.5,
+        "lowest_threshold": true,
+        "accepts_small_operators": true,
+        "accepts_startups": true,
+        "rural_coverage": true
+      },
+      "preferences": {
+        "collateral_weight": 0.10,
+        "cashflow_weight": 0.40,
+        "credit_weight": 0.30,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "low",
+        "no_collateral": "low",
+        "industry_restriction": "low"
+      },
+      "target_enterprise": "初创企业、个体工商户、县域小微",
+      "estimated_approval_rate": 0.72
+    },
+    {
+      "id": "cmb",
+      "name": "招商银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "招捷贷/生意贷",
+      "loan_type": "抵押+信用",
+      "max_amount_credit": 50,
+      "max_amount_mortgage": 3000,
+      "min_interest_rate": 2.35,
+      "max_interest_rate": 3.00,
+      "max_term_years": 20,
+      "approval_days": "最快3个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "mortgage_needs_property": true,
+        "supports_second_mortgage": true,
+        "stable_operation_required": true,
+        "good_tax_record": true
+      },
+      "preferences": {
+        "collateral_weight": 0.40,
+        "cashflow_weight": 0.25,
+        "credit_weight": 0.20,
+        "tax_weight": 0.15
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "medium",
+        "no_collateral": "high",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "有房产抵押的中小微企业",
+      "estimated_approval_rate": 0.55
+    },
+    {
+      "id": "citic",
+      "name": "中信银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "房抵e贷",
+      "loan_type": "抵押为主",
+      "max_amount_credit": 500,
+      "max_amount_mortgage": 3000,
+      "min_interest_rate": 2.15,
+      "max_interest_rate": 3.00,
+      "max_term_years": 20,
+      "approval_days": "3-5个工作日",
+      "requirements": {
+        "min_business_years": 2,
+        "high_quality_collateral": true,
+        "stable_operation": true,
+        "good_tax_record": true,
+        "not_for_startups": true
+      },
+      "preferences": {
+        "collateral_weight": 0.50,
+        "cashflow_weight": 0.20,
+        "credit_weight": 0.15,
+        "tax_weight": 0.15
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "high",
+        "short_business_age": "high",
+        "no_collateral": "high",
+        "industry_restriction": "high"
+      },
+      "target_enterprise": "有优质房产的规模化小微企业",
+      "estimated_approval_rate": 0.38
+    },
+    {
+      "id": "pingan",
+      "name": "平安银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "橙e贷（经营版）",
+      "loan_type": "纯信用+抵押双选",
+      "max_amount_credit": 300,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 3.00,
+      "max_interest_rate": 5.00,
+      "max_term_years": 10,
+      "approval_days": "最快1-3个工作日",
+      "requirements": {
+        "min_business_years": 0.5,
+        "no_collateral_needed": true,
+        "focus_on_cashflow": true,
+        "accepts_platform_data": true,
+        "lowest_threshold_joint_stock": true
+      },
+      "preferences": {
+        "collateral_weight": 0.05,
+        "cashflow_weight": 0.45,
+        "credit_weight": 0.30,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "low",
+        "no_collateral": "low",
+        "industry_restriction": "low"
+      },
+      "target_enterprise": "初创小微、个体工商户、电商（无抵押物首选）",
+      "estimated_approval_rate": 0.70
+    },
+    {
+      "id": "minsheng",
+      "name": "民生银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "云抵贷",
+      "loan_type": "抵押",
+      "max_amount_credit": 0,
+      "max_amount_mortgage": 1000,
+      "min_interest_rate": 2.60,
+      "max_interest_rate": 4.00,
+      "max_term_years": 10,
+      "approval_days": "3-5个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "specific_collateral_requirements": true,
+        "property_area_age_restrictions": true,
+        "focus_on_cashflow": true
+      },
+      "preferences": {
+        "collateral_weight": 0.45,
+        "cashflow_weight": 0.25,
+        "credit_weight": 0.15,
+        "tax_weight": 0.15
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "medium",
+        "no_collateral": "high",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "有符合要求房产的小微企业",
+      "estimated_approval_rate": 0.45
+    },
+    {
+      "id": "cib",
+      "name": "兴业银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "普惠小微贷",
+      "loan_type": "信用+抵押",
+      "max_amount_credit": 300,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 3.07,
+      "max_interest_rate": 4.50,
+      "max_term_years": 10,
+      "approval_days": "3-5个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "strong_policy_enforcement": true,
+        "diverse_product_lines": true
+      },
+      "preferences": {
+        "collateral_weight": 0.25,
+        "cashflow_weight": 0.30,
+        "credit_weight": 0.25,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "medium",
+        "no_collateral": "low",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "各类型小微企业",
+      "estimated_approval_rate": 0.60
+    },
+    {
+      "id": "spdb",
+      "name": "浦发银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "小微快贷/商户贷",
+      "loan_type": "信用",
+      "max_amount_credit": 120,
+      "max_amount_mortgage": 120,
+      "min_interest_rate": 3.10,
+      "max_interest_rate": 3.25,
+      "max_term_years": 5,
+      "approval_days": "1-3个工作日",
+      "requirements": {
+        "min_business_years": 0.5,
+        "low_threshold": true,
+        "accepts_new_merchants": true,
+        "small_amount_focused": true
+      },
+      "preferences": {
+        "collateral_weight": 0.10,
+        "cashflow_weight": 0.40,
+        "credit_weight": 0.30,
+        "tax_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "low",
+        "no_collateral": "low",
+        "industry_restriction": "low"
+      },
+      "target_enterprise": "小额融资需求的小微商户",
+      "estimated_approval_rate": 0.65
+    },
+    {
+      "id": "cebb",
+      "name": "光大银行",
+      "type": "股份制商业银行",
+      "tier": 2,
+      "product_name": "e担贷/e信贷",
+      "loan_type": "信用+担保",
+      "max_amount_credit": 200,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 3.19,
+      "max_interest_rate": 4.50,
+      "max_term_years": 5,
+      "approval_days": "3-5个工作日",
+      "requirements": {
+        "min_business_years": 1,
+        "normal_operation": true,
+        "good_credit": true,
+        "has_guarantee_mechanism": true
+      },
+      "preferences": {
+        "collateral_weight": 0.20,
+        "cashflow_weight": 0.30,
+        "credit_weight": 0.25,
+        "tax_weight": 0.25
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "medium",
+        "no_collateral": "low",
+        "industry_restriction": "medium"
+      },
+      "target_enterprise": "有一定经营基础的小微企业",
+      "estimated_approval_rate": 0.58
+    },
+    {
+      "id": "webank",
+      "name": "微众银行（互联网）",
+      "type": "互联网银行",
+      "tier": 3,
+      "product_name": "微业贷",
+      "loan_type": "纯信用",
+      "max_amount_credit": 1000,
+      "max_amount_mortgage": 1000,
+      "min_interest_rate": 3.60,
+      "max_interest_rate": 18.00,
+      "max_term_years": 3,
+      "approval_days": "最快1分钟",
+      "requirements": {
+        "min_business_years": 1,
+        "business_license_required": true,
+        "normal_tax_record": true,
+        "good_credit": true,
+        "no_physical_bank_account_needed": true,
+        "data_source": "腾讯生态+企业纳税数据"
+      },
+      "preferences": {
+        "collateral_weight": 0.00,
+        "cashflow_weight": 0.15,
+        "credit_weight": 0.35,
+        "tax_weight": 0.30,
+        "big_data_weight": 0.20
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "medium",
+        "no_collateral": "low",
+        "industry_restriction": "low"
+      },
+      "target_enterprise": "纳税正常的各类小微企业",
+      "estimated_approval_rate": 0.80
+    },
+    {
+      "id": "mybank",
+      "name": "网商银行（互联网）",
+      "type": "互联网银行",
+      "tier": 3,
+      "product_name": "网商贷",
+      "loan_type": "纯信用",
+      "max_amount_credit": 500,
+      "max_amount_mortgage": 500,
+      "min_interest_rate": 4.35,
+      "max_interest_rate": 20.00,
+      "max_term_years": 3,
+      "approval_days": "最快1小时",
+      "requirements": {
+        "min_business_years": 0.5,
+        "business_license_required": true,
+        "alipay_ecosystem_integrated": true,
+        "zhima_credit_based": true,
+        "ecommerce_preferred": true,
+        "data_source": "支付宝生态+电商经营数据"
+      },
+      "preferences": {
+        "collateral_weight": 0.00,
+        "cashflow_weight": 0.30,
+        "credit_weight": 0.25,
+        "tax_weight": 0.15,
+        "ecommerce_data_weight": 0.30
+      },
+      "rejection_sensitivity": {
+        "credit_issues": "medium",
+        "short_business_age": "low",
+        "no_collateral": "low",
+        "industry_restriction": "low"
+      },
+      "target_enterprise": "电商商户、支付宝生态经营者",
+      "estimated_approval_rate": 0.75
+    }
+  ],
+  "loan_rejection_factors": {
+    "征信记录不良": {"estimated_pct": 35, "severity": "critical"},
+    "经营流水不足": {"estimated_pct": 25, "severity": "major"},
+    "缺乏有效抵押物": {"estimated_pct": 20, "severity": "major"},
+    "企业成立时间太短": {"estimated_pct": 10, "severity": "moderate"},
+    "财务制度不健全": {"estimated_pct": 5, "severity": "moderate"},
+    "行业限制": {"estimated_pct": 3, "severity": "minor"},
+    "负债率过高": {"estimated_pct": 2, "severity": "minor"}
+  },
+  "forbidden_industries": {
+    "strictly_forbidden": ["赌博", "色情", "毒品", "非法集资", "传销"],
+    "severely_restricted": ["房地产开发(非自用)", "钢铁", "水泥", "电解铝", "高污染行业"],
+    "cautious": ["KTV", "酒吧", "投资理财类", "煤炭开采"],
+    "conditional": {
+      "建筑业": "需相关资质",
+      "贸易类": "需真实交易背景"
+    }
+  },
+  "credit_requirements_by_tier": {
+    "国有大行": {
+      "max_overdue_2yr": "≤3次（建行≤6次）",
+      "max_credit_inquiry_3m": "≤3-4次",
+      "current_overdue": "必须结清",
+      "classification": "正常类",
+      "special_concern": "一般拒绝",
+      "substandard_doubtful_loss": "直接拒绝"
+    },
+    "股份行/中小银行": {
+      "max_overdue_2yr": "≤6次",
+      "max_credit_inquiry_3m": "≤6次",
+      "current_overdue": "必须结清",
+      "classification": "正常类",
+      "special_concern": "视情况而定",
+      "substandard_doubtful_loss": "直接拒绝"
+    }
+  },
+  "ml_features": {
+    "basic": {
+      "business_age_years": {"type": "continuous", "range": [0, 50], "importance": "critical"},
+      "registered_capital_wan": {"type": "continuous", "range": [0, 100000], "importance": "moderate"},
+      "industry_type": {"type": "categorical", "importance": "major"},
+      "region": {"type": "categorical", "importance": "moderate"},
+      "employee_count": {"type": "continuous", "range": [0, 10000], "importance": "moderate"}
+    },
+    "financial": {
+      "annual_revenue_wan": {"type": "continuous", "range": [0, 1000000], "importance": "critical"},
+      "annual_profit_wan": {"type": "continuous", "range": [-100000, 1000000], "importance": "critical"},
+      "profit_margin": {"type": "continuous", "range": [-1, 1], "importance": "major"},
+      "cash_flow_wan": {"type": "continuous", "range": [-100000, 1000000], "importance": "critical"},
+      "asset_liability_ratio": {"type": "continuous", "range": [0, 2], "importance": "major"}
+    },
+    "tax": {
+      "tax_level": {"type": "ordinal", "values": {"A": 5, "B": 4, "M": 3, "C": 2, "D": 1}, "importance": "critical"},
+      "annual_tax_wan": {"type": "continuous", "range": [0, 100000], "importance": "major"},
+      "invalid_invoice_ratio": {"type": "continuous", "range": [0, 1], "importance": "major"}
+    },
+    "credit": {
+      "has_default_history": {"type": "binary", "range": [0, 1], "importance": "critical"},
+      "overdue_count_2yr": {"type": "continuous", "range": [0, 50], "importance": "critical"},
+      "credit_inquiry_3m": {"type": "continuous", "range": [0, 20], "importance": "major"},
+      "legal_disputes": {"type": "continuous", "range": [0, 100], "importance": "major"}
+    },
+    "asset": {
+      "has_real_estate": {"type": "binary", "range": [0, 1], "importance": "major"},
+      "real_estate_value_wan": {"type": "continuous", "range": [0, 100000], "importance": "moderate"},
+      "has_other_collateral": {"type": "binary", "range": [0, 1], "importance": "moderate"}
+    },
+    "stability": {
+      "revenue_volatility": {"type": "continuous", "range": [0, 5], "importance": "major"},
+      "customer_count": {"type": "continuous", "range": [0, 10000], "importance": "moderate"},
+      "customer_concentration": {"type": "continuous", "range": [0, 1], "importance": "moderate"}
+    }
+  },
+  "policy_subsidies_2026": {
+    "service_sector_extension": "延长至2026年底",
+    "max_subsidy_per_enterprise_wan": 1000,
+    "covered_sectors": ["餐饮住宿", "文旅", "数字", "绿色", "零售", "养老", "家政", "教育", "体育", "交通", "农业"],
+    "first_year_subsidy_pct": 1.0,
+    "startup_guarantee_loan": {
+      "min_interest_rate": 1.3,
+      "max_amount_wan": 300,
+      "max_term_years": 2
+    }
+  },
+  "macro_statistics_2024": {
+    "total_inclusive_sme_loan_balance_trillion": 32.93,
+    "yoy_growth_pct": 14.6,
+    "premium_over_total_loan_growth_pct": 7.0,
+    "share_of_total_loans_pct": 12.88,
+    "top_industry_distribution": "制造业+批发零售业超60%",
+    "abc_balance_trillion": 3.93,
+    "ccb_balance_trillion": 3.83,
+    "icbc_balance_trillion": 3.55,
+    "boc_balance_trillion": 2.77
+  }
+}

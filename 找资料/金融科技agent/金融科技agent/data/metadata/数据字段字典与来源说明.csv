@@ -1,0 +1,83 @@
+﻿file_name,field_name,field_origin,description
+贷款风险模型训练数据_已清洗.csv,record_id,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,source_dataset,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,data_origin,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,borrower_scope,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,business_type,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,industry,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,business_age,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,monthly_revenue,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,monthly_cost,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,net_cashflow,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,existing_debt,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,loan_amount,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,loan_currency,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,loan_term,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,interest_rate,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,has_license,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,has_bank_flow,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,overdue_history,unavailable,公开源无该字段，保留为空；不得解释为零
+贷款风险模型训练数据_已清洗.csv,has_guarantee,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,risk_label,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,risk_label_definition,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,original_credit_risk,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,checking_status_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,credit_history_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,loan_purpose_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,loan_purpose,derived_or_metadata,由来源字段映射或为数据治理元数据
+贷款风险模型训练数据_已清洗.csv,savings_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,employment_duration_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,installment_rate_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,personal_status_sex_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,other_debtors_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,present_residence_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,property_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,age,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,other_installment_plans_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,housing_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,number_credits_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,job_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,people_liable_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,telephone_code,source,来自 UCI South German Credit 原始字段
+贷款风险模型训练数据_已清洗.csv,foreign_worker_code,source,来自 UCI South German Credit 原始字段
+普惠金融政策规则知识库_已整理.csv,rule_id,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,source_id,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,source_name,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,source_url,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,document_title,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,document_no,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,rule_type,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,rule_theme,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,applicable_object,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,key_condition,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,required_materials,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,amount_range,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,loan_term,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,interest_rate_rule,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,risk_warning,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,legal_basis,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,summary,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,agent_usage,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,publish_date,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,effective_date,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,status,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,is_full_text,synthetic,教学模拟案例字段；非真实客户或裁判案例
+普惠金融政策规则知识库_已整理.csv,last_verified_at,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,case_id,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,case_type,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,borrower_type,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,industry,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,business_age,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,loan_amount,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,loan_currency,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,loan_term,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,interest_rate,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,risk_signal,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,result,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,reason,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,summary,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,source_type,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,source_url,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,is_synthetic,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,legal_policy_reference,synthetic,教学模拟案例字段；非真实客户或裁判案例
+小微企业融资教学案例库_模拟数据.csv,agent_usage,synthetic,教学模拟案例字段；非真实客户或裁判案例

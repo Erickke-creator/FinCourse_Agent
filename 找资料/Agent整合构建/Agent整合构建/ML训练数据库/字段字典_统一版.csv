@@ -1,0 +1,49 @@
+字段名,中文说明,数据类型,来源,所属数据集,Agent可用性,备注
+record_id,样本记录ID,string,元数据,UCI,不可用,仅用于数据追溯
+source_dataset,来源数据集名称,string,元数据,UCI,不可用,UCI South German Credit
+data_origin,数据来源类型,string,元数据,UCI,不可用,public_real_world_historical
+borrower_scope,借款人范围,string,元数据,UCI,不可用,individual=个人信贷
+business_age_years,企业经营年限,float,合成,CUMCM Synthetic,前端输入,实际经营年数；范围0~50
+registered_capital_wan,注册资本_万元,float,合成,CUMCM Synthetic,前端输入,范围5~100000
+industry,行业类型,category,合成,CUMCM Synthetic,前端输入+Agent规则匹配,18类行业编码
+employee_count,员工数量,int,合成,CUMCM Synthetic,前端输入,范围0~10000
+annual_revenue_wan,年营业收入_万元,float,合成,CUMCM Synthetic,前端输入,范围0~1000000
+annual_profit_wan,年利润_万元,float,合成,CUMCM Synthetic,前端输入,范围-100000~1000000
+profit_margin,利润率,float,合成,CUMCM Synthetic,前端输入,范围-1~1
+cash_flow_wan,现金流_万元,float,合成,CUMCM Synthetic,前端输入,范围-100000~1000000
+asset_liability_ratio,资产负债率,float,合成,CUMCM Synthetic,前端输入,范围0~2
+tax_level,纳税等级,category,合成,CUMCM Synthetic,前端输入+Agent银税贷匹配,A/B/M/C/D 五级
+tax_score,纳税评分,int,合成,CUMCM Synthetic,Agent规则匹配,A=5/B=4/M=3/C=2/D=1
+annual_tax_wan,年纳税额_万元,float,合成,CUMCM Synthetic,前端输入,估算值
+invalid_invoice_ratio,废票率,float,合成,CUMCM Synthetic,Agent风险诊断,范围0~1
+supplier_count,上游供应商数量,int,合成,CUMCM Synthetic,Agent供应链分析,
+customer_count,下游客户数量,int,合成,CUMCM Synthetic,Agent供应链分析,
+customer_concentration,客户集中度,float,合成,CUMCM Synthetic,Agent风险诊断,范围0~1
+has_default_history,是否有违约历史,binary,合成,CUMCM Synthetic,前端输入+Agent征信诊断,0/1
+overdue_count_2yr,近2年逾期次数,int,合成,CUMCM Synthetic,前端输入+Agent征信诊断,范围0~50
+credit_inquiry_3m,近3月征信查询次数,int,合成,CUMCM Synthetic,前端输入+Agent征信诊断,范围0~20
+legal_disputes,法律纠纷次数,int,合成,CUMCM Synthetic,Agent风险诊断,范围0~100
+has_real_estate,是否拥有房产,binary,合成,CUMCM Synthetic,前端输入+Agent抵押匹配,0/1
+real_estate_value_wan,房产价值_万元,float,合成,CUMCM Synthetic,前端输入,范围0~100000
+has_other_collateral,是否有其他抵押物,binary,合成,CUMCM Synthetic,前端输入+Agent增信诊断,0/1
+revenue_volatility,收入波动系数,float,合成,CUMCM Synthetic,Agent稳定性诊断,范围0~5
+is_ecommerce,是否电商企业,binary,合成,CUMCM Synthetic,前端输入+Agent互联网银行匹配,0/1
+is_tech_enterprise,是否科创企业,binary,合成,CUMCM Synthetic,前端输入+Agent科创产品匹配,0/1
+industry_encoded,行业编码,int,编码,合成,仅供ML模型,Label Encoding结果
+tax_level_encoded,纳税等级编码,int,编码,合成,仅供ML模型,Label Encoding结果
+default_probability,违约概率,float,ML标签,合成,Agent风险评分输出,模型预测值0~1
+has_defaulted,是否违约,binary,ML标签,合成,ML训练监督标签,0/1二元标签
+credit_rating,信用评级,category,ML标签,合成,Agent评级输出+前端展示,A/B/C/D四级
+loan_amount,贷款金额,float,UCI来源,UCI,训练特征,原UCI字段
+loan_term,贷款期限,float,UCI来源,UCI,训练特征,原UCI字段（月）
+checking_status_code,账户状态编码,int,UCI来源,UCI,训练特征,原UCI字段
+credit_history_code,信用历史编码,int,UCI来源,UCI,训练特征,原UCI字段
+loan_purpose_code,贷款用途编码,int,UCI来源,UCI,训练特征,原UCI字段
+loan_purpose,贷款用途,string,UCI来源,UCI,训练特征,原UCI映射字段
+savings_code,储蓄状况编码,int,UCI来源,UCI,训练特征,原UCI字段
+employment_duration_code,就业年限编码,int,UCI来源,UCI,训练特征,原UCI字段
+installment_rate_code,分期负担率编码,int,UCI来源,UCI,训练特征,原UCI字段
+age,年龄,int,UCI来源,UCI,训练特征,原UCI字段
+housing_code,住房状态编码,int,UCI来源,UCI,训练特征,原UCI字段
+risk_label,风险标签,binary,UCI来源,UCI,ML训练监督标签,1=bad/0=good
+risk_label_definition,标签定义,string,UCI来源,UCI,元数据,解释标签映射规则
