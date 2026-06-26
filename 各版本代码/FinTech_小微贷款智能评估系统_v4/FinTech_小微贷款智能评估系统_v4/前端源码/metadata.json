@@ -1,0 +1,6 @@
+{
+  "name": "小微贷款智能评估助手",
+  "description": "一个用于小微商户贷款智能评估的前端原型系统，提供贷款风险评分、还款压力测算、申请材料清单和智能改善建议，降低小微主体融资信息门槛。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

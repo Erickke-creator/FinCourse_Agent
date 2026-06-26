@@ -1,7 +1,0 @@
-{
-  "loan_model_train_rows": 1000,
-  "risk_label_1": 300,
-  "rule_knowledge_rows": 18,
-  "case_library_rows": 30,
-  "case_all_synthetic": true
-}

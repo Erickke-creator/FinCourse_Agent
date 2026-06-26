@@ -1,0 +1,93 @@
+{
+  "model_version": "2.0-enhanced",
+  "n_samples": 8000,
+  "default_rate": 0.2895,
+  "feature_columns": [
+    "business_age_years",
+    "annual_revenue_wan",
+    "annual_profit_wan",
+    "profit_margin",
+    "cash_flow_wan",
+    "asset_liability_ratio",
+    "invalid_invoice_ratio",
+    "supplier_count",
+    "customer_count",
+    "customer_concentration",
+    "tax_score",
+    "annual_tax_wan",
+    "has_default_history",
+    "overdue_count_2yr",
+    "credit_inquiry_3m",
+    "legal_disputes",
+    "has_real_estate",
+    "real_estate_value_wan",
+    "has_other_collateral",
+    "revenue_volatility",
+    "is_ecommerce",
+    "is_tech_enterprise",
+    "industry_encoded",
+    "tax_level_encoded"
+  ],
+  "xgb_accuracy": 0.60875,
+  "xgb_precision": 0.3982521847690387,
+  "xgb_recall": 0.6889848812095032,
+  "xgb_f1": 0.504746835443038,
+  "xgb_roc_auc": 0.6777735353731067,
+  "rating_accuracy": 0.2975,
+  "rating_f1_macro": 0.21126639118250198,
+  "risk_accuracy": 0.386875,
+  "train_time_seconds": 3.1,
+  "top_features": [
+    {
+      "rank": 1,
+      "feature": "overdue_count_2yr",
+      "importance": 0.16497111320495605
+    },
+    {
+      "rank": 2,
+      "feature": "has_default_history",
+      "importance": 0.14738476276397705
+    },
+    {
+      "rank": 3,
+      "feature": "credit_inquiry_3m",
+      "importance": 0.07304607331752777
+    },
+    {
+      "rank": 4,
+      "feature": "has_real_estate",
+      "importance": 0.05983471870422363
+    },
+    {
+      "rank": 5,
+      "feature": "has_other_collateral",
+      "importance": 0.0501745380461216
+    },
+    {
+      "rank": 6,
+      "feature": "is_tech_enterprise",
+      "importance": 0.04845556616783142
+    },
+    {
+      "rank": 7,
+      "feature": "legal_disputes",
+      "importance": 0.04475456848740578
+    },
+    {
+      "rank": 8,
+      "feature": "is_ecommerce",
+      "importance": 0.043831244111061096
+    },
+    {
+      "rank": 9,
+      "feature": "cash_flow_wan",
+      "importance": 0.04126320779323578
+    },
+    {
+      "rank": 10,
+      "feature": "business_age_years",
+      "importance": 0.029302828013896942
+    }
+  ],
+  "data_source": "enhanced_synthetic"
+}
