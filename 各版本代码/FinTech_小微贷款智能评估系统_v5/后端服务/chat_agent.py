@@ -103,8 +103,91 @@ ENTERPRISE_SEARCH_SCHEMA = {
     }
 }
 
+# v5 新增工具 Schemas
+RAG_SEARCH_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "semantic_search_kb",
+        "description": "语义搜索知识库（向量检索），支持自然语言查询政策、案例、银行、补贴。比关键词匹配更智能。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "自然语言查询，如'制造业有哪些贴息政策''逾期记录怎么修复'"},
+                "doc_type": {"type": "string", "description": "文档类型过滤: policy/bank/case/industry/subsidy，留空搜全部"}
+            },
+            "required": ["query"]
+        }
+    }
+}
+
+STRESS_TEST_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "run_stress_test",
+        "description": "对企业现金流进行4种压力场景测试（轻微/中度/严重/极端），评估还款韧性。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "monthly_revenue": {"type": "number", "description": "月营收（元）"},
+                "monthly_fixed_cost": {"type": "number", "description": "月固定成本（元）"},
+                "monthly_repayment": {"type": "number", "description": "月还款额（元）"},
+                "existing_liabilities": {"type": "number", "description": "现有月负债（元），默认0"},
+                "cash_reserve": {"type": "number", "description": "现金储备（元），默认0"},
+            },
+            "required": ["monthly_revenue", "monthly_fixed_cost", "monthly_repayment"]
+        }
+    }
+}
+
+PDF_EXPORT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "export_pdf_report",
+        "description": "将当前评估结果导出为正式 PDF 贷款可行性评估报告。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "enterprise_name": {"type": "string", "description": "企业名称"}
+            },
+            "required": ["enterprise_name"]
+        }
+    }
+}
+
+STALENESS_CHECK_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "check_kb_staleness",
+        "description": "检查知识库时效性：扫描所有政策和案例的最后验证日期，标记过期条目。",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+}
+
+MULTI_AGENT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "run_multi_agent_analysis",
+        "description": "启动4个子Agent（征信/银行/政策/风险）并行分析，综合生成企业贷款评估报告。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "enterprise_name": {"type": "string", "description": "企业名称"},
+                "industry": {"type": "string", "description": "所属行业"},
+                "amount": {"type": "number", "description": "申请金额（万元）"},
+                "business_years": {"type": "number", "description": "经营年限"},
+                "tax_level": {"type": "string", "description": "纳税等级 A/B/M/C/D"},
+            },
+            "required": ["industry", "amount"]
+        }
+    }
+}
+
 # 合并所有 Tools
-ALL_TOOLS = KB_TOOLS_SCHEMA + [EVALUATION_TOOL_SCHEMA, ENTERPRISE_SEARCH_SCHEMA]
+ALL_TOOLS = KB_TOOLS_SCHEMA + [
+    EVALUATION_TOOL_SCHEMA, ENTERPRISE_SEARCH_SCHEMA,
+    RAG_SEARCH_SCHEMA, STRESS_TEST_SCHEMA, PDF_EXPORT_SCHEMA,
+    STALENESS_CHECK_SCHEMA, MULTI_AGENT_SCHEMA,
+]
 
 
 async def _evaluate_loan_tool(**kwargs) -> dict:
@@ -112,33 +195,39 @@ async def _evaluate_loan_tool(**kwargs) -> dict:
     from bank_engine import evaluate_loan
     from models import LoanInput
     try:
+        # Convert annual→monthly revenue, years→months term
+        amount_wy = kwargs.get("amount", 50)          # 万元
+        term_years = kwargs.get("term_years", 1)
+        annual_rev = kwargs.get("annual_revenue", 100)  # 万元/年
         inp = LoanInput(
-            amount=kwargs.get("amount", 50),
-            term_years=kwargs.get("term_years", 1),
-            industry=kwargs.get("industry", "其他"),
-            business_years=kwargs.get("business_years", 3),
-            annual_revenue=kwargs.get("annual_revenue", 100),
+            requested_amount=amount_wy * 10000,         # 万元 → 元
+            loan_term=term_years * 12,                   # 年 → 月
+            industry=kwargs.get("industry", "other"),
+            operating_years=kwargs.get("business_years", 3),
+            monthly_revenue=(annual_rev * 10000) / 12,  # 万元/年 → 元/月
             tax_level=kwargs.get("tax_level", "M"),
-            has_collateral=kwargs.get("has_collateral", False),
-            credit_overdues=kwargs.get("credit_overdues", 0),
+            has_collateral_or_guarantor=kwargs.get("has_collateral", False),
+            has_overdue_record=kwargs.get("credit_overdues", 0) > 0,
+            overdue_count_2yr=kwargs.get("credit_overdues", 0),
         )
         result = evaluate_loan(inp)
+        top_bank = result.bank_matches[0] if result.bank_matches else None
         return {
             "success": True,
             "score": result.score,
-            "risk_level": result.risk_level,
-            "health_score": result.health_score,
+            "risk_level": str(result.risk_level),
+            "health_score": result.enterprise_health_score,
             "suggested_amount": result.suggested_amount,
-            "suggested_rate": result.suggested_rate,
-            "top_bank": result.top_bank,
+            "top_bank_name": top_bank.bank_name if top_bank else None,
+            "top_bank_probability": top_bank.approval_probability if top_bank else None,
             "top_matches": [
                 {"name": m.bank_name, "probability": m.approval_probability,
-                 "estimated_rate": m.estimated_rate, "reasons": m.match_reasons[:3]}
+                 "estimated_rate": m.estimated_interest_rate, "reasons": m.recommendation_reasons[:3]}
                 for m in (result.bank_matches or [])[:5]
             ],
             "strengths": result.strengths,
             "risks": result.risks,
-            "materials": result.materials[:5] if result.materials else [],
+            "materials": [{"name": m.name, "desc": m.description} for m in (result.recommended_materials or [])[:5]],
             "ml_default_prob": getattr(result, "ml_default_prob", None),
             "ml_credit_rating": getattr(result, "ml_credit_rating", None),
         }
@@ -156,11 +245,92 @@ async def _search_enterprise_tool(name: str) -> dict:
         return {"found": False, "error": str(e)}
 
 
+# v5 新工具实现
+async def _semantic_search_tool(query: str, doc_type: str = "") -> dict:
+    try:
+        from kb_rag import semantic_search, is_available as rag_ok
+        if not rag_ok():
+            return {"success": False, "message": "RAG 引擎未初始化（chromadb 未安装）"}
+        results = semantic_search(query, top_n=5, doc_type=doc_type)
+        return {"success": True, "query": query, "results_count": len(results), "results": results}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def _stress_test_tool(**kwargs) -> dict:
+    try:
+        from stress_test import run_stress_test, stress_test_summary
+        results = run_stress_test(
+            monthly_revenue=kwargs.get("monthly_revenue", 50000),
+            monthly_fixed_cost=kwargs.get("monthly_fixed_cost", 30000),
+            existing_liabilities=kwargs.get("existing_liabilities", 0),
+            monthly_repayment=kwargs.get("monthly_repayment", 10000),
+            cash_reserve=kwargs.get("cash_reserve", 0),
+        )
+        summary = stress_test_summary(results)
+        return {
+            "success": True,
+            "summary": summary,
+            "scenarios": [
+                {"name": r.scenario, "can_survive": r.can_survive, "risk": r.risk_level,
+                 "cashflow": r.stressed_monthly_cashflow, "repay_ratio": r.stressed_repayment_ratio}
+                for r in results
+            ]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def _pdf_export_tool(enterprise_name: str = "") -> dict:
+    try:
+        # 获取当前 session 的评估结果
+        from report_pdf import generate_pdf_report
+        # 先从评估引擎生成一份报告数据
+        from bank_engine import evaluate_loan
+        from models import LoanInput
+        inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
+        result = evaluate_loan(inp)
+        path = generate_pdf_report(result.model_dump(), {"name": enterprise_name})
+        return {"success": True, "file_path": path, "message": f"PDF 报告已生成: {path}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def _staleness_check_tool() -> dict:
+    try:
+        from kb_staleness import get_staleness_summary, check_all
+        report = check_all()
+        return {"success": True, "summary": get_staleness_summary(), "health_score": report["health_score"]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def _multi_agent_tool(**kwargs) -> dict:
+    try:
+        from multi_agent import run_multi_agent_local
+        from bank_engine import evaluate_loan
+        from models import LoanInput
+        amount_wy = kwargs.get("amount", 50)
+        inp = LoanInput(
+            requested_amount=amount_wy * 10000,
+            loan_term=kwargs.get("term_years", 1) * 12,
+            industry=kwargs.get("industry", "other"),
+            operating_years=kwargs.get("business_years", 3),
+            tax_level=kwargs.get("tax_level", "M"),
+        )
+        result = evaluate_loan(inp)
+        info = {"name": kwargs.get("enterprise_name", ""), "industry": kwargs.get("industry", ""),
+                "amount": kwargs.get("amount", 50), "annual_revenue": 100}
+        return run_multi_agent_local(result.model_dump(), info)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # 完整的 Tool Map
 TOOL_MAP = {
     **KB_TOOL_MAP,
     "evaluate_loan": lambda **kw: _evaluate_loan_tool(**kw),
     "search_enterprise": lambda name="", **kw: _search_enterprise_tool(name),
+    "semantic_search_kb": lambda **kw: _semantic_search_tool(**kw),
+    "run_stress_test": lambda **kw: _stress_test_tool(**kw),
+    "export_pdf_report": lambda **kw: _pdf_export_tool(**kw),
+    "check_kb_staleness": lambda **kw: _staleness_check_tool(),
+    "run_multi_agent_analysis": lambda **kw: _multi_agent_tool(**kw),
 }
 
 

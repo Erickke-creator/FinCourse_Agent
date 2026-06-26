@@ -190,11 +190,54 @@ export default function App() {
 
   const handleEvaluate = (e?: FormEvent) => {
     if (e) e.preventDefault();
-    const result = evaluateLoanPronto(inputs);
-    setEvaluationResult(result);
+    setEvaluationResult(evaluateLoanPronto(inputs));
     setHasEvaluated(true);
     setActiveNav('risk');
     mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // v5: 调用后端 /api/evaluate（含 ML 预测），失败时降级为本地计算
+  const handleEvaluateWithAPI = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000';
+    try {
+      const resp = await fetch(`${API_BASE}/api/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_type: inputs.merchantType,
+          operating_years: inputs.operatingYears,
+          industry: inputs.industry,
+          monthly_revenue: inputs.monthlyRevenue,
+          monthly_fixed_cost: inputs.monthlyFixedCost,
+          existing_liabilities: inputs.existingLiabilities,
+          requested_amount: inputs.requestedAmount,
+          loan_term: inputs.loanTerm,
+          annual_rate: inputs.annualRate,
+          tax_level: inputs.taxLevel,
+          has_business_license: inputs.hasBusinessLicense,
+          has_stable_bank_flow: inputs.hasStableBankFlow,
+          has_overdue_record: inputs.hasOverdueRecord,
+          overdue_count_2yr: inputs.overdueCount2yr,
+          has_collateral_or_guarantor: inputs.hasCollateralOrGuarantor,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.data) {
+          setEvaluationResult(data.data as EvaluationResult);
+          setHasEvaluated(true);
+          setActiveNav('risk');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('API evaluation failed, falling back to local:', err);
+    }
+    // Fallback
+    setEvaluationResult(evaluateLoanPronto(inputs));
+    setHasEvaluated(true);
+    setActiveNav('risk');
   };
 
   // ============================================================

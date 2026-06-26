@@ -9,17 +9,16 @@
 kb/
 ├── VERSION                        ← 版本号
 ├── README.md                      ← 本文件（组员使用指南）
-├── schema/                        ← JSON Schema 校验定义（7个）
 ├── data/                          ← 知识库数据文件（16个）
 │   ├── policies/                  ← 政策规则（国家级18条 + 地方级24条）
-│   ├── banks/                     ← 银行产品（28家 + 地域可用性）
-│   ├── industries/                ← 行业准入（18行业 + 地域调整）
+│   ├── banks/                     ← 银行产品（15家 + 地域可用性29条）
+│   ├── industries/                ← 行业准入（18行业 + 地域调整22条）
 │   ├── credit_tax/                ← 征信与纳税（分级表 + 评分规则）
 │   ├── risk_control/              ← 风控规则（被拒因子 + 补贴政策 + 宏观数据）
 │   ├── cases/                     ← 教学案例（30条基础 + 20条增强）
-│   └── governance/                ← 数据治理（来源登记 + 语义层 + 字段映射）
+│   └── governance/                ← 数据治理（来源登记 + 语义层 + 字段映射33条）
 ├── loader/                        ← Python 加载器（pip installable）
-└── tests/                         ← 单元测试
+└── tools/                         ← 数据迁移/文档生成工具
 ```
 
 ## 快速开始（组员使用）
@@ -82,9 +81,9 @@ df = pd.read_csv("kb/data/industries/industry_acceptance.csv")
 | `policies/national_policies.csv` | 18 | 国家级监管政策法规（22列，含 rule_id, key_condition, risk_warning 等） |
 | `policies/provincial_policies.csv` | 24 | 省市级普惠金融细则（18列，含 province, city, subsidy_content 等） |
 | `banks/bank_products.json` | 28 | 银行产品参数（含 requirements, preferences, rejection_sensitivity） |
-| `banks/bank_regional_availability.csv` | 30 | 银行地域覆盖（含 覆盖范围, 重点服务区域, 线上化程度） |
+| `banks/bank_regional_availability.csv` | 29 | 银行地域覆盖（含 覆盖范围, 重点服务区域, 线上化程度） |
 | `industries/industry_acceptance.csv` | 18 | 行业准入等级与接受度系数 |
-| `industries/regional_adjustments.csv` | 23 | 行业准入的地域差异化调整系数 |
+| `industries/regional_adjustments.csv` | 22 | 行业准入的地域差异化调整系数 |
 | `credit_tax/credit_tolerance.csv` | 4 | 银行层级征信容忍度 |
 | `credit_tax/tax_level_scoring.csv` | 5 | 纳税等级 A/B/M/C/D 评分映射 |
 | `risk_control/rejection_factors.csv` | 7 | 贷款被拒因子与权重 |
@@ -94,13 +93,13 @@ df = pd.read_csv("kb/data/industries/industry_acceptance.csv")
 | `cases/teaching_cases_enhanced.csv` | 20 | 增强版案例（含 diagnosis_chain, improvement_advice） |
 | `governance/data_source_registry.csv` | — | 所有数据来源的URL/许可证/下载状态 |
 | `governance/data_semantics.md` | — | 字段定义、标签口径、使用边界 |
-| `governance/field_mapping_ml_kb.csv` | 35 | 输入字段→ML模型→知识库的三方映射关系 |
+| `governance/field_mapping_ml_kb.csv` | 33 | 输入字段→ML模型→知识库的三方映射关系 |
 
 ## 数据更新流程
 
 1. 修改 `kb/data/` 下的 CSV/JSON 文件
 2. 同步更新 `kb/VERSION` 中的版本号和日期
-3. 运行 `python kb/tests/test_loader.py` 验证数据完整性
+3. 运行 `python -c "from loader.loader import KnowledgeBase; kb = KnowledgeBase(); kb.health_check()"` 验证数据完整性
 4. 重启后端服务使新数据生效
 
 ## 边界声明

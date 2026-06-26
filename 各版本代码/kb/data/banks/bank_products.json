@@ -3,7 +3,7 @@
     "description": "中国银行业小微企业贷款产品结构化数据 - 用于FinTech自评与银行匹配系统",
     "version": "1.0",
     "date": "2026-06-20",
-    "total_banks": 28,
+    "total_banks": 15,
     "data_sources": [
       "央行普惠金融报告2024-2025",
       "银行官网",

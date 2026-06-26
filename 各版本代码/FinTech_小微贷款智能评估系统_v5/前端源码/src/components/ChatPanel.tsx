@@ -28,8 +28,8 @@ const SUGGESTED_QUESTIONS = [
   { label: '改善建议', q: '怎么提高我的贷款通过率？经营时间比较短' },
 ];
 
-// API地址
-const API_BASE = 'http://localhost:8000';
+// API地址（开发环境默认 localhost，部署时改为实际域名）
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -136,7 +136,7 @@ export default function ChatPanel() {
     } catch (err: any) {
       const errorMsg: ChatMessage = {
         role: 'assistant',
-        content: `⚠️ 抱歉，连接后端服务失败。请确保后端已启动（http://localhost:8000）。\n\n错误：${err.message}`,
+        content: `⚠️ 抱歉，连接后端服务失败。请确保后端已启动（${API_BASE}）。\n\n错误：${err.message}`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMsg]);

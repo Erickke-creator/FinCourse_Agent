@@ -1,0 +1,62 @@
+name: FinTech v5 CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          cd 各版本代码/FinTech_小微贷款智能评估系统_v5/后端服务
+          pip install -r requirements.txt
+      - name: Verify imports
+        run: |
+          cd 各版本代码/FinTech_小微贷款智能评估系统_v5/后端服务
+          python -c "
+          from models import LoanInput, EvaluationResult
+          from bank_engine import BANKS_DB
+          from kb_bridge import get_kb_summary, search_policies
+          from stress_test import run_stress_test
+          print(f'Banks: {len(BANKS_DB)}')
+          print(get_kb_summary()[:200])
+          print('All imports OK')
+          "
+
+  knowledge-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate KB data files
+        run: |
+          python -c "
+          import json, csv, os
+          kb = '各版本代码/kb/data'
+          errors = []
+          # Check JSON
+          for f in ['banks/bank_products.json', 'risk_control/macro_statistics.json']:
+              try:
+                  with open(f'{kb}/{f}', 'r') as fh: json.load(fh)
+              except Exception as e: errors.append(f'{f}: {e}')
+          # Check CSV count
+          for f, min_rows in [
+              ('policies/national_policies.csv', 18),
+              ('cases/teaching_cases_enhanced.csv', 20),
+              ('industries/industry_acceptance.csv', 18),
+          ]:
+              with open(f'{kb}/{f}', 'r', encoding='utf-8-sig') as fh:
+                  count = sum(1 for _ in csv.DictReader(fh))
+              if count < min_rows: errors.append(f'{f}: {count} rows < {min_rows}')
+          if errors:
+              for e in errors: print(f'ERROR: {e}')
+              exit(1)
+          print('KB validation OK')
+          "

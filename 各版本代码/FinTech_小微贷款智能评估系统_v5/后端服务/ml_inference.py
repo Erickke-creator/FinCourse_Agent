@@ -4,6 +4,7 @@ Integrates with the FastAPI evaluation pipeline.
 """
 
 import os
+import json
 import numpy as np
 import joblib
 from typing import Optional, Dict, Any, Tuple
@@ -96,31 +97,30 @@ class MLPredictor:
         net_monthly = float(enterprise_data.get('monthly_revenue', 30000)) - float(enterprise_data.get('monthly_fixed_cost', 15000)) - liabilities
 
         features = np.array([[
-            float(enterprise_data.get('operating_years', 1)),                    # business_age_years
-            float(enterprise_data.get('registered_capital', 50)) * 1,           # registered_capital_wan
-            float(enterprise_data.get('employee_count', 5)),                     # employee_count
-            revenue / 10000,                                                     # annual_revenue_wan
-            (revenue - fixed_cost) / 10000,                                      # annual_profit_wan (approx)
-            (revenue - fixed_cost) / max(revenue, 1),                            # profit_margin
-            net_monthly * 12 / 10000,                                            # cash_flow_wan
-            float(enterprise_data.get('asset_liability_ratio', 0.4)),            # asset_liability_ratio
-            tax_score,                                                           # tax_score
-            revenue * 0.03 / 10000,                                              # annual_tax_wan (approx)
-            float(enterprise_data.get('invalid_invoice_ratio', 0.05)),           # invalid_invoice_ratio
-            1 if enterprise_data.get('has_overdue_record') else 0,               # has_default_history
-            float(enterprise_data.get('overdue_count_2yr', 0)),                  # overdue_count_2yr
-            float(enterprise_data.get('credit_inquiry_3m', 2)),                  # credit_inquiry_3m
-            float(enterprise_data.get('legal_disputes', 0)),                     # legal_disputes
-            1 if enterprise_data.get('has_real_estate') else 0,                  # has_real_estate
-            float(enterprise_data.get('real_estate_value', 0)),                  # real_estate_value_wan
-            1 if enterprise_data.get('has_collateral_or_guarantor') else 0,      # has_other_collateral
-            float(enterprise_data.get('revenue_volatility', 0.3)),               # revenue_volatility
-            float(enterprise_data.get('customer_count', 10)),                    # customer_count
-            float(enterprise_data.get('customer_concentration', 0.3)),           # customer_concentration
-            1 if enterprise_data.get('is_ecommerce') else 0,                     # is_ecommerce
-            1 if enterprise_data.get('is_tech_enterprise') else 0,               # is_tech_enterprise
-            industry_encoded,                                                    # industry_encoded
-            tax_encoded,                                                         # tax_level_encoded
+            float(enterprise_data.get('operating_years', 1)),                    # 0: business_age_years
+            revenue / 10000,                                                     # 1: annual_revenue_wan
+            (revenue - fixed_cost) / 10000,                                      # 2: annual_profit_wan
+            (revenue - fixed_cost) / max(revenue, 1),                            # 3: profit_margin
+            net_monthly * 12 / 10000,                                            # 4: cash_flow_wan
+            float(enterprise_data.get('asset_liability_ratio', 0.4)),            # 5: asset_liability_ratio
+            float(enterprise_data.get('invalid_invoice_ratio', 0.05)),           # 6: invalid_invoice_ratio
+            float(enterprise_data.get('supplier_count', 10)),                    # 7: supplier_count
+            float(enterprise_data.get('customer_count', 10)),                    # 8: customer_count
+            float(enterprise_data.get('customer_concentration', 0.3)),           # 9: customer_concentration
+            tax_score,                                                           # 10: tax_score
+            revenue * 0.03 / 10000,                                              # 11: annual_tax_wan (approx)
+            1 if enterprise_data.get('has_overdue_record') else 0,               # 12: has_default_history
+            float(enterprise_data.get('overdue_count_2yr', 0)),                  # 13: overdue_count_2yr
+            float(enterprise_data.get('credit_inquiry_3m', 2)),                  # 14: credit_inquiry_3m
+            float(enterprise_data.get('legal_disputes', 0)),                     # 15: legal_disputes
+            1 if enterprise_data.get('has_real_estate') else 0,                  # 16: has_real_estate
+            float(enterprise_data.get('real_estate_value', 0)),                  # 17: real_estate_value_wan
+            1 if enterprise_data.get('has_collateral_or_guarantor') else 0,      # 18: has_other_collateral
+            float(enterprise_data.get('revenue_volatility', 0.3)),               # 19: revenue_volatility
+            1 if enterprise_data.get('is_ecommerce') else 0,                     # 20: is_ecommerce
+            1 if enterprise_data.get('is_tech_enterprise') else 0,               # 21: is_tech_enterprise
+            industry_encoded,                                                    # 22: industry_encoded
+            tax_encoded,                                                         # 23: tax_level_encoded
         ]])
 
         return features

@@ -3,6 +3,6 @@ date: 2026-06-25
 source: 普惠金融Agent_知识库
 description: Unified knowledge base for SME loan evaluation Agent
 file_count: 16
-bank_count: 28
+bank_count: 15 (kb/data) / 30 (bank_engine BANKS_DB)
 policy_count: 42 (18 national + 24 provincial)
 case_count: 50 (30 basic + 20 enhanced)
