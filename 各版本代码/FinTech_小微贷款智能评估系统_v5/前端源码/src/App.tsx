@@ -424,11 +424,31 @@ export default function App() {
                 评估结果
               </button>
             )}
-            <button onClick={() => handleEvaluate()}
+            <button onClick={() => handleEvaluateWithAPI()}
               className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm shadow-blue-200 transition flex items-center gap-1.5">
               <Play className="w-3.5 h-3.5" />
               开始评估
             </button>
+            {hasEvaluated && (
+              <button onClick={async () => {
+                const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000';
+                try {
+                  const resp = await fetch(`${API_BASE}/api/report/pdf-download`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enterprise_name: inputs.industry || '企业', evaluation_result: evaluationResult }),
+                  });
+                  if (resp.ok) {
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = '贷款评估报告.pdf'; a.click();
+                    URL.revokeObjectURL(url);
+                  } else { alert('PDF 生成失败'); }
+                } catch { alert('请确保后端已启动'); }
+              }}
+              className="px-4 py-1.5 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                📥 下载 PDF
+              </button>
+            )}
           </div>
         </header>
 

@@ -53,6 +53,13 @@ SYSTEM_PROMPT_TEMPLATE = """你是一个专业的小微企业贷款智能顾问 
 - 回复简洁有条理，关键信息用 Emoji 或分段标注
 - 用户没有提供完整企业信息时，主动引导补充（行业、金额、经营年限、纳税等级）
 
+## 工具使用优先级
+1. **semantic_search_kb**（首选）：向量语义搜索，覆盖全部政策/案例/银行/补贴
+2. **search_policies / search_cases / search_banks**（精确查询）：需要特定结构化字段时使用
+3. **evaluate_loan**：执行完整贷款评估
+4. **run_stress_test**：现金流压力测试
+5. **run_multi_agent_analysis**：多Agent综合评估
+
 ## 风险提示
 - 所有分析仅供参考，实际贷款审批以银行终审为准
 - 教学案例均为模拟数据，仅用于说明评估逻辑"""
@@ -365,9 +372,27 @@ _active_sessions: dict[str, ChatSession] = {}
 
 def get_or_create_session(session_id: str) -> ChatSession:
     if session_id not in _active_sessions:
-        _active_sessions[session_id] = ChatSession(session_id=session_id)
+        session = ChatSession(session_id=session_id)
+        # v5: 从 SQLite 恢复历史
+        try:
+            from chat_history import load_session
+            saved = load_session(session_id)
+            if saved["history"]:
+                session.history = saved["history"]
+            if saved["profile"]:
+                session.enterprise_profile = saved["profile"]
+        except Exception:
+            pass
+        _active_sessions[session_id] = session
     if len(_active_sessions) > 100:
         oldest = min(_active_sessions.keys(), key=lambda k: _active_sessions[k].created_at)
+        # v5: 淘汰前持久化
+        try:
+            from chat_history import save_session
+            s = _active_sessions[oldest]
+            save_session(s.session_id, s.history, s.enterprise_profile)
+        except Exception:
+            pass
         del _active_sessions[oldest]
     return _active_sessions[session_id]
 
@@ -440,6 +465,13 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
             # 尝试提取企业信息
             _extract_profile(session, user_message, final)
 
+            # v5: SQLite 持久化
+            try:
+                from chat_history import save_session
+                save_session(session.session_id, session.history, session.enterprise_profile)
+            except Exception:
+                pass
+
             return final
 
         # LLM 需要调工具
@@ -463,7 +495,16 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
                         elif func_name == "evaluate_loan":
                             result = await _evaluate_loan_tool(**func_args)
                             if isinstance(result, dict) and result.get("success"):
-                                session.last_evaluation = result  # v5: save for PDF export
+                                session.last_evaluation = result
+                                # v5: 保存评分历史
+                                try:
+                                    from chat_history import save_evaluation
+                                    save_evaluation(session.session_id, result.get("score", 0),
+                                                    result.get("risk_level", ""),
+                                                    func_args.get("industry", "unknown"),
+                                                    result)
+                                except Exception:
+                                    pass
                         elif func_name == "export_pdf_report":
                             result = await _pdf_export_tool(
                                 enterprise_name=func_args.get("enterprise_name", ""),

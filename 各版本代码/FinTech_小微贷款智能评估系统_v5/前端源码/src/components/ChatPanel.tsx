@@ -105,6 +105,49 @@ export default function ChatPanel() {
     }
   };
 
+  // v5: SSE 流式对话（打字机效果）
+  const streamChat = async (query: string, userMsg: ChatMessage) => {
+    const resp = await fetch(`${API_BASE}/api/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, session_id: sessionId }),
+    });
+    const reader = resp.body?.getReader();
+    if (!reader) throw new Error('No stream');
+    const decoder = new TextDecoder();
+    // 创建占位消息
+    setMessages(prev => [...prev, { role: 'assistant', content: '', timestamp: new Date() }]);
+    let fullText = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('data: ')) {
+          try {
+            const d = JSON.parse(line.slice(6));
+            if (d.text) {
+              fullText += d.text;
+              setMessages(prev => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { ...copy[copy.length - 1], content: fullText };
+                return copy;
+              });
+            }
+            if (d.done) {
+              setMessages(prev => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { ...copy[copy.length - 1], content: d.full || fullText };
+                return copy;
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+    setLoading(false);
+  };
+
   const handleSend = async (text?: string) => {
     const query = text || input.trim();
     if (!query || loading) return;
@@ -117,6 +160,14 @@ export default function ChatPanel() {
     setMessages(prev => [...prev, userMsg]);
 
     try {
+      // v5: 优先尝试 SSE 流式，失败降级普通请求
+      const useStream = true;
+      if (useStream) {
+        try {
+          await streamChat(query, userMsg);
+          return;
+        } catch { /* fall through to normal */ }
+      }
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

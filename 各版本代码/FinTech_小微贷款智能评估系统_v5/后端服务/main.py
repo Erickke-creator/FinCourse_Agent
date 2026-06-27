@@ -3,14 +3,14 @@ FastAPI backend for SME Loan Evaluation + Bank Matching.
 Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models import (
     LoanInput, EvaluationResult, ApiResponse, BankProductResponse
 )
 from bank_engine import evaluate_loan, BANKS_DB
-from chat_agent import run_agent, get_or_create_session, is_llm_available
+from chat_agent import run_agent, get_or_create_session, is_llm_available, ALL_TOOLS, TOOL_MAP
 from dotenv import load_dotenv
 load_dotenv()
 from enterprise_search import analyze_enterprise
@@ -264,6 +264,130 @@ async def download_report(req: ReportRequest):
 def _url_encode(s: str) -> str:
     """URL 编码文件名"""
     return quote(s)
+
+
+# ============================================================
+# v5: SSE 流式对话
+# ============================================================
+from fastapi.responses import StreamingResponse
+import json as json_module
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest):
+    """流式 AI 对话（SSE）"""
+    if not req.session_id or req.session_id == "default":
+        req.session_id = str(uuid.uuid4())[:8]
+
+    async def event_stream():
+        import httpx
+        DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+        if not DEEPSEEK_KEY:
+            yield f"data: {json_module.dumps({'error': 'AI service not configured'})}\n\n"
+            return
+
+        from chat_agent import _build_system_prompt
+        session = get_or_create_session(req.session_id)
+        messages = [
+            {"role": "system", "content": _build_system_prompt()},
+            *session.history[-20:],
+            {"role": "user", "content": req.query}
+        ]
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream(
+                    "POST", "https://api.deepseek.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"},
+                    json={"model": "deepseek-chat", "messages": messages,
+                          "tools": ALL_TOOLS, "temperature": 0.3, "max_tokens": 1500, "stream": True}
+                ) as resp:
+                    full_reply = ""
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            if data == "[DONE]":
+                                break
+                            try:
+                                chunk = json_module.loads(data)
+                                delta = chunk["choices"][0].get("delta", {})
+                                if delta.get("content"):
+                                    full_reply += delta["content"]
+                                    yield f"data: {json_module.dumps({'text': delta['content']})}\n\n"
+                            except Exception:
+                                continue
+                    # Save to history
+                    session.history.append({"role": "user", "content": req.query})
+                    session.history.append({"role": "assistant", "content": full_reply})
+                    yield f"data: {json_module.dumps({'done': True, 'full': full_reply})}\n\n"
+        except Exception as e:
+            yield f"data: {json_module.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ============================================================
+# v5: 银行数据同步（BANKS_DB → bank_products.json）
+# ============================================================
+@app.get("/api/admin/sync-banks")
+async def sync_banks():
+    """将 bank_engine.BANKS_DB 导出为 bank_products.json（统一数据源）"""
+    try:
+        banks_json_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "kb", "data", "banks", "bank_products.json"
+        )
+        banks_list = []
+        for b in BANKS_DB:
+            banks_list.append({
+                "id": b.get("id", ""),
+                "name": b.get("name", ""),
+                "type": b.get("type", ""),
+                "product_name": b.get("product_name", ""),
+                "loan_type": b.get("loan_type", ""),
+                "max_amount_credit": b.get("max_amount_credit", 0),
+                "max_amount_mortgage": b.get("max_amount_mortgage", 0),
+                "min_rate": b.get("min_rate", 0),
+                "max_rate": b.get("max_rate", 0),
+                "max_term_years": b.get("max_term_years", 0),
+                "min_business_years": b.get("min_business_years", 0),
+                "target_enterprise": b.get("target_enterprise", ""),
+                "preferences": b.get("preferences", {}),
+                "rejection_sensitivity": b.get("rejection_sensitivity", {}),
+            })
+        data = {"metadata": {"total_banks": len(banks_list), "source": "bank_engine.BANKS_DB", "synced_at": datetime.now().isoformat()}, "banks": banks_list}
+        os.makedirs(os.path.dirname(banks_json_path), exist_ok=True)
+        with open(banks_json_path, "w", encoding="utf-8") as f:
+            json_module.dump(data, f, ensure_ascii=False, indent=2)
+        return {"success": True, "banks_synced": len(banks_list), "target": banks_json_path}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================
+# v5: 请求日志中间件
+# ============================================================
+# ============================================================
+# v5: 评分历史
+# ============================================================
+@app.get("/api/scores/history")
+async def score_history(session_id: str = "", limit: int = 5):
+    """获取最近评分历史（用于对比）"""
+    try:
+        from chat_history import get_recent_evaluations
+        results = get_recent_evaluations(session_id or None, limit)
+        return {"success": True, "count": len(results), "history": results}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    elapsed = (time.time() - start) * 1000
+    # 简洁日志：方法 路径 状态码 耗时
+    if request.url.path.startswith("/api/"):
+        print(f"[API] {request.method} {request.url.path} → {response.status_code} ({elapsed:.0f}ms)")
+    return response
 
 
 if __name__ == "__main__":

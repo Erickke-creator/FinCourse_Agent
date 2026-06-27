@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    volumes:
+      - ./后端服务/models:/app/backend/models
+      - ./后端服务/chat_history.db:/app/backend/chat_history.db
+    restart: unless-stopped
