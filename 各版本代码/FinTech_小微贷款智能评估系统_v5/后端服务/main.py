@@ -10,12 +10,18 @@ from models import (
     LoanInput, EvaluationResult, ApiResponse, BankProductResponse
 )
 from bank_engine import evaluate_loan, BANKS_DB
-from chat_agent import run_agent, get_or_create_session, is_llm_available, ALL_TOOLS, TOOL_MAP
+from chat_agent import (
+    AgentConfigurationError,
+    run_agent,
+    get_or_create_session,
+    is_llm_available,
+)
 from dotenv import load_dotenv
 load_dotenv()
 from enterprise_search import analyze_enterprise
 from pydantic import BaseModel as PydanticBase, Field
 from typing import Optional
+import os
 import time
 import uuid
 from datetime import datetime
@@ -158,6 +164,11 @@ class ChatResponse(PydanticBase):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
     """v5 AI对话接口：LLM Agent + 知识库工具调用"""
+    if not is_llm_available():
+        raise HTTPException(
+            status_code=503,
+            detail="Chat Agent 未配置 DEEPSEEK_API_KEY，无 Key 降级回答已禁用。",
+        )
     try:
         if not req.session_id or req.session_id == "default":
             req.session_id = str(uuid.uuid4())[:8]
@@ -182,6 +193,8 @@ async def chat_endpoint(req: ChatRequest):
             download_url=download_url,
             download_label=download_label,
         )
+    except AgentConfigurationError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         return ChatResponse(
             success=False,
@@ -274,53 +287,25 @@ import json as json_module
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
-    """流式 AI 对话（SSE）"""
+    """
+    SSE 兼容对话接口。
+
+    必须复用 run_agent，否则 DeepSeek 返回的 Function Call 只会被当作
+    流式文字忽略，导致评估和知识库工具在前端主链上失效。
+    """
     if not req.session_id or req.session_id == "default":
         req.session_id = str(uuid.uuid4())[:8]
 
     async def event_stream():
-        import httpx
-        DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-        if not DEEPSEEK_KEY:
-            yield f"data: {json_module.dumps({'error': 'AI service not configured'})}\n\n"
+        if not is_llm_available():
+            yield f"data: {json_module.dumps({'error': 'Chat Agent 未配置 DEEPSEEK_API_KEY，无 Key 降级回答已禁用。'}, ensure_ascii=False)}\n\n"
             return
-
-        from chat_agent import _build_system_prompt
-        session = get_or_create_session(req.session_id)
-        messages = [
-            {"role": "system", "content": _build_system_prompt()},
-            *session.history[-20:],
-            {"role": "user", "content": req.query}
-        ]
-
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                async with client.stream(
-                    "POST", "https://api.deepseek.com/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"},
-                    json={"model": "deepseek-chat", "messages": messages,
-                          "tools": ALL_TOOLS, "temperature": 0.3, "max_tokens": 1500, "stream": True}
-                ) as resp:
-                    full_reply = ""
-                    async for line in resp.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
-                                break
-                            try:
-                                chunk = json_module.loads(data)
-                                delta = chunk["choices"][0].get("delta", {})
-                                if delta.get("content"):
-                                    full_reply += delta["content"]
-                                    yield f"data: {json_module.dumps({'text': delta['content']})}\n\n"
-                            except Exception:
-                                continue
-                    # Save to history
-                    session.history.append({"role": "user", "content": req.query})
-                    session.history.append({"role": "assistant", "content": full_reply})
-                    yield f"data: {json_module.dumps({'done': True, 'full': full_reply})}\n\n"
+            reply = await run_agent(req.query, req.session_id)
+            yield f"data: {json_module.dumps({'text': reply}, ensure_ascii=False)}\n\n"
+            yield f"data: {json_module.dumps({'done': True, 'full': reply}, ensure_ascii=False)}\n\n"
         except Exception as e:
-            yield f"data: {json_module.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json_module.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
