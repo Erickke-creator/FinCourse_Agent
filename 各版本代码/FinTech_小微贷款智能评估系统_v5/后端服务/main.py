@@ -15,8 +15,11 @@ from dotenv import load_dotenv
 load_dotenv()
 from enterprise_search import analyze_enterprise
 from pydantic import BaseModel as PydanticBase, Field
+from typing import Optional
 import time
 import uuid
+from datetime import datetime
+from urllib.parse import quote
 
 app = FastAPI(
     title="小微贷款智能评估助手 API",
@@ -41,11 +44,31 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
+    # ML availability
+    ml_available = False
+    try:
+        from ml_inference import MLPredictor
+        p = MLPredictor()
+        ml_available = p.load_models()
+    except Exception:
+        pass
+
+    # KB availability
+    kb_available = False
+    try:
+        from kb_bridge import get_kb_summary
+        get_kb_summary()
+        kb_available = True
+    except Exception:
+        pass
+
     return {
         "status": "healthy",
         "version": "5.0.0",
         "banks_count": len(BANKS_DB),
-        "ai_available": is_llm_available(),
+        "ml_available": ml_available,
+        "kb_available": kb_available,
+        "agent_available": is_llm_available(),
     }
 
 
@@ -83,12 +106,13 @@ async def evaluate_loan_application(inp: LoanInput):
         result: EvaluationResult = evaluate_loan(inp)
         elapsed = time.time() - start_time
 
-        # Inject timing metadata
+        # Inject metadata
         result_dict = result.model_dump()
         result_dict["_meta"] = {
             "evaluation_time_ms": round(elapsed * 1000),
             "banks_evaluated": len(result.bank_matches),
-            "engine_version": "2.0.0",
+            "engine_version": "5.0.0",
+            "ml_available": result.ml_enhanced,
         }
 
         return ApiResponse(success=True, data=result)
@@ -128,6 +152,8 @@ class ChatResponse(PydanticBase):
     reply: str
     session_id: str = ""
     ai_available: bool = False
+    download_url: Optional[str] = None       # v5: PDF 下载链接
+    download_label: Optional[str] = None     # v5: 下载按钮文字
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -137,12 +163,24 @@ async def chat_endpoint(req: ChatRequest):
             req.session_id = str(uuid.uuid4())[:8]
 
         reply = await run_agent(req.query, req.session_id)
+        session = get_or_create_session(req.session_id)
+        download_url = None
+        download_label = None
+        if session.download_url:
+            # 构建完整的下载 URL
+            download_url = session.download_url
+            download_label = f"下载 {session.download_label} 的评估报告"
+            # 清除，避免下次对话误带
+            session.download_url = ""
+            session.download_label = ""
 
         return ChatResponse(
             success=True,
             reply=reply,
             session_id=req.session_id,
             ai_available=is_llm_available(),
+            download_url=download_url,
+            download_label=download_label,
         )
     except Exception as e:
         return ChatResponse(
@@ -173,6 +211,59 @@ async def search_enterprise(req: EnterpriseSearchRequest):
         return {"success": True, **result}
     except Exception as e:
         return {"success": False, "found": False, "message": f"搜索出错：{str(e)}"}
+
+# ============================================================
+# v5 报告导出
+# ============================================================
+class ReportRequest(PydanticBase):
+    enterprise_name: str = "企业"
+    evaluation_result: Optional[dict] = None  # 可选：传入评估结果，不传则生成默认报告
+
+@app.post("/api/report/pdf")
+async def export_report(req: ReportRequest):
+    """导出 PDF 贷款评估报告"""
+    try:
+        from report_pdf import generate_pdf_file
+        result_data = req.evaluation_result or {}
+        if not result_data:
+            from bank_engine import evaluate_loan
+            from models import LoanInput
+            inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
+            result_data = evaluate_loan(inp).model_dump()
+        path = generate_pdf_file(result_data, {"name": req.enterprise_name})
+        return {"success": True, "file_path": path, "message": f"PDF 报告已生成"}
+    except ImportError:
+        return {"success": False, "message": "reportlab 未安装。pip install reportlab"}
+    except Exception as e:
+        return {"success": False, "message": f"报告生成失败：{str(e)}"}
+
+@app.post("/api/report/pdf-download")
+async def download_report(req: ReportRequest):
+    """直接下载 PDF 报告（浏览器触发保存）"""
+    from fastapi.responses import StreamingResponse
+    try:
+        from report_pdf import generate_pdf_bytes
+        result_data = req.evaluation_result or {}
+        if not result_data:
+            from bank_engine import evaluate_loan
+            from models import LoanInput
+            inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
+            result_data = evaluate_loan(inp).model_dump()
+        buf = generate_pdf_bytes(result_data, {"name": req.enterprise_name})
+        filename = f"贷款评估报告_{req.enterprise_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        return StreamingResponse(
+            buf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_encode(filename)}"}
+        )
+    except ImportError:
+        return JSONResponse({"success": False, "message": "reportlab 未安装"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)}, status_code=500)
+
+def _url_encode(s: str) -> str:
+    """URL 编码文件名"""
+    return quote(s)
 
 
 if __name__ == "__main__":

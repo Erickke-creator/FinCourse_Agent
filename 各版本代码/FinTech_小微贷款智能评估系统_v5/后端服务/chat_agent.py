@@ -289,7 +289,15 @@ async def _pdf_export_tool(enterprise_name: str = "") -> dict:
         inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
         result = evaluate_loan(inp)
         path = generate_pdf_report(result.model_dump(), {"name": enterprise_name})
-        return {"success": True, "file_path": path, "message": f"PDF 报告已生成: {path}"}
+        # 返回下载标记，ChatPanel 前端会识别并渲染下载按钮
+        return {
+            "success": True,
+            "file_path": path,
+            "download_url": f"/api/report/pdf-download",
+            "enterprise_name": enterprise_name,
+            "message": f"报告已生成，点击下方按钮保存",
+            "__action": "download_pdf",
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -340,8 +348,10 @@ TOOL_MAP = {
 @dataclass
 class ChatSession:
     session_id: str
-    history: list = field(default_factory=list)         # [{role, content}]
-    enterprise_profile: dict = field(default_factory=dict)  # 提取的企业信息
+    history: list = field(default_factory=list)
+    enterprise_profile: dict = field(default_factory=dict)
+    download_url: str = ""
+    download_label: str = ""
     created_at: str = ""
 
 _active_sessions: dict[str, ChatSession] = {}
@@ -446,12 +456,21 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
                             result = await _search_enterprise_tool(**func_args)
                         elif func_name == "evaluate_loan":
                             result = await _evaluate_loan_tool(**func_args)
+                        elif func_name == "export_pdf_report":
+                            result = await _pdf_export_tool(**func_args)
                         else:
                             result = tool_func(**func_args)
                     except Exception as e:
                         result = {"success": False, "error": str(e)}
                 else:
                     result = {"success": False, "error": f"未知工具: {func_name}"}
+
+                # v5: 检测下载动作
+                if isinstance(result, dict) and result.get("__action") == "download_pdf":
+                    session.download_url = result.get("download_url")
+                    session.download_label = result.get("enterprise_name", "下载报告")
+                    # 不让 LLM 看到 __action 内部字段
+                    result = {"success": True, "message": result.get("message", "")}
 
                 messages.append({
                     "role": "tool",

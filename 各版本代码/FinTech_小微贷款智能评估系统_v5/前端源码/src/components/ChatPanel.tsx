@@ -14,6 +14,8 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  downloadUrl?: string;
+  downloadLabel?: string;
 }
 
 // 推荐问题
@@ -128,6 +130,8 @@ export default function ChatPanel() {
           role: 'assistant',
           content: data.reply,
           timestamp: new Date(),
+          downloadUrl: data.download_url || undefined,
+          downloadLabel: data.download_label || undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
       } else {
@@ -258,6 +262,38 @@ export default function ChatPanel() {
                   <div className="text-xs leading-relaxed">{msg.content}</div>
                 ) : (
                   <div className="text-xs">{renderContent(msg.content)}</div>
+                )}
+                {/* v5: PDF 下载按钮 */}
+                {msg.downloadUrl && (
+                  <div className="mt-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE}${msg.downloadUrl}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enterprise_name: msg.downloadLabel?.replace('下载 ', '')?.replace(' 的评估报告', '') || '企业' }),
+                          });
+                          if (!res.ok) throw new Error('下载失败');
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `贷款评估报告_${Date.now()}.pdf`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch (e) {
+                          alert('下载失败，请重试');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs rounded-lg transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {msg.downloadLabel || '下载 PDF 报告'}
+                    </button>
+                  </div>
                 )}
                 <div className={`text-[9px] mt-1 ${msg.role === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
                   {msg.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}

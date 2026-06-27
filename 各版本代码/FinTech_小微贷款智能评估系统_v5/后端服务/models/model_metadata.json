@@ -28,65 +28,65 @@
     "industry_encoded",
     "tax_level_encoded"
   ],
-  "xgb_accuracy": 0.60875,
-  "xgb_precision": 0.3982521847690387,
-  "xgb_recall": 0.6889848812095032,
-  "xgb_f1": 0.504746835443038,
-  "xgb_roc_auc": 0.6777735353731067,
+  "xgb_accuracy": 0.603125,
+  "xgb_precision": 0.39434889434889436,
+  "xgb_recall": 0.693304535637149,
+  "xgb_f1": 0.5027407987470635,
+  "xgb_roc_auc": 0.6777260457685812,
   "rating_accuracy": 0.2975,
   "rating_f1_macro": 0.21126639118250198,
   "risk_accuracy": 0.386875,
-  "train_time_seconds": 3.1,
+  "train_time_seconds": 2.9,
   "top_features": [
     {
       "rank": 1,
       "feature": "overdue_count_2yr",
-      "importance": 0.16497111320495605
+      "importance": 0.16697023808956146
     },
     {
       "rank": 2,
       "feature": "has_default_history",
-      "importance": 0.14738476276397705
+      "importance": 0.14028199017047882
     },
     {
       "rank": 3,
       "feature": "credit_inquiry_3m",
-      "importance": 0.07304607331752777
+      "importance": 0.07276651263237
     },
     {
       "rank": 4,
-      "feature": "has_real_estate",
-      "importance": 0.05983471870422363
+      "feature": "is_tech_enterprise",
+      "importance": 0.052324190735816956
     },
     {
       "rank": 5,
-      "feature": "has_other_collateral",
-      "importance": 0.0501745380461216
+      "feature": "legal_disputes",
+      "importance": 0.05001901835203171
     },
     {
       "rank": 6,
-      "feature": "is_tech_enterprise",
-      "importance": 0.04845556616783142
+      "feature": "is_ecommerce",
+      "importance": 0.04780609533190727
     },
     {
       "rank": 7,
-      "feature": "legal_disputes",
-      "importance": 0.04475456848740578
+      "feature": "has_other_collateral",
+      "importance": 0.04496990889310837
     },
     {
       "rank": 8,
-      "feature": "is_ecommerce",
-      "importance": 0.043831244111061096
+      "feature": "has_real_estate",
+      "importance": 0.04292577877640724
     },
     {
       "rank": 9,
       "feature": "cash_flow_wan",
-      "importance": 0.04126320779323578
+      "importance": 0.041932594031095505
     },
     {
       "rank": 10,
       "feature": "business_age_years",
-      "importance": 0.029302828013896942
+      "importance": 0.030038049444556236
     }
   ],
   "data_source": "enhanced_synthetic"

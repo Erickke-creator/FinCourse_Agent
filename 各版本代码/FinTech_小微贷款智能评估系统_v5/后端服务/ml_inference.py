@@ -5,9 +5,12 @@ Integrates with the FastAPI evaluation pipeline.
 
 import os
 import json
+import logging
 import numpy as np
 import joblib
 from typing import Optional, Dict, Any, Tuple
+
+logger = logging.getLogger("ml_inference")
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'models')
 
@@ -41,7 +44,7 @@ class MLPredictor:
                 risk_path = rating_path
 
             if not os.path.exists(xgb_path):
-                print("[ML] Models not found — run train_ml_enhanced.py first")
+                logger.warning("Models not found — run train_ml_enhanced.py first")
                 return False
 
             self.xgb_default = joblib.load(xgb_path)
@@ -60,12 +63,12 @@ class MLPredictor:
                     self.feature_cols = meta.get('feature_columns', [])
 
             self.is_loaded = True
-            print(f"[ML] Models loaded: default={type(self.xgb_default).__name__}, "
+            logger.info(f"Models loaded: default={type(self.xgb_default).__name__}, "
                   f"rating={type(self.gb_rating).__name__}, "
                   f"features={len(self.feature_cols)}")
             return True
         except Exception as e:
-            print(f"[ML] Failed to load models: {e}")
+            logger.warning(f"Failed to load models: {e}")
             return False
 
     def _build_feature_vector(self, enterprise_data: Dict[str, Any]) -> np.ndarray:
@@ -135,7 +138,7 @@ class MLPredictor:
             prob = self.xgb_default.predict_proba(X_scaled)[0, 1]
             return float(prob)
         except Exception as e:
-            print(f"[ML] Default prediction error: {e}")
+            logger.warning(f" Default prediction error: {e}")
             return None
 
     def predict_credit_rating(self, enterprise_data: Dict[str, Any]) -> Optional[str]:
@@ -153,7 +156,7 @@ class MLPredictor:
                 rating = rating_map.get(int(rating_encoded), 'C')
             return rating
         except Exception as e:
-            print(f"[ML] Rating error: {e}")
+            logger.warning(f" Rating error: {e}")
             return None
 
     def predict_risk_level(self, enterprise_data: Dict[str, Any]) -> Optional[str]:
@@ -167,7 +170,7 @@ class MLPredictor:
             risk_map = {0: 'low', 1: 'medium', 2: 'high'}
             return risk_map.get(int(risk_encoded), 'medium')
         except Exception as e:
-            print(f"[ML] Risk prediction error: {e}")
+            logger.warning(f" Risk prediction error: {e}")
             return None
 
     def predict_all(self, enterprise_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:

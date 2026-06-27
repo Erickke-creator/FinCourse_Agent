@@ -4,6 +4,9 @@ Mirrors the frontend TypeScript logic for server-side evaluation.
 """
 
 import math
+import logging
+
+logger = logging.getLogger("bank_engine")
 import numpy as np
 from typing import List, Tuple, Dict
 from models import (
@@ -655,22 +658,30 @@ def evaluate_loan(inp: LoanInput) -> EvaluationResult:
     try:
         from ml_inference import MLPredictor
         predictor = MLPredictor()
-        enterprise_dict = {
-            "operating_years": inp.operating_years,
-            "monthly_revenue": inp.monthly_revenue,
-            "has_overdue_record": 1 if inp.has_overdue_record else 0,
-            "has_collateral": 1 if inp.has_collateral_or_guarantor else 0,
-            "has_business_license": 1 if inp.has_business_license else 0,
-            "merchant_type": inp.merchant_type.value,
-            "industry": inp.industry,
-        }
-        ml_result = predictor.predict_all(enterprise_dict)
-        ml_default_prob = ml_result.get("default_probability")
-        ml_credit_rating = ml_result.get("credit_rating")
-        ml_risk_level = ml_result.get("risk_level")
-        ml_enhanced = True
-    except Exception:
-        pass  # ML not available — graceful degradation
+        if not predictor.load_models():
+            logger.warning("ML models not loaded, skipping ML enhancement")
+        else:
+            enterprise_dict = {
+                "operating_years": inp.operating_years,
+                "monthly_revenue": inp.monthly_revenue,
+                "monthly_fixed_cost": inp.monthly_fixed_cost,
+                "existing_liabilities": inp.existing_liabilities,
+                "has_overdue_record": 1 if inp.has_overdue_record else 0,
+                "has_collateral_or_guarantor": 1 if inp.has_collateral_or_guarantor else 0,
+                "has_business_license": 1 if inp.has_business_license else 0,
+                "merchant_type": inp.merchant_type.value,
+                "industry": inp.industry.value if hasattr(inp.industry, 'value') else str(inp.industry),
+                "tax_level": inp.tax_level.value if hasattr(inp.tax_level, 'value') else str(inp.tax_level),
+                "overdue_count_2yr": inp.overdue_count_2yr,
+            }
+            ml_result = predictor.predict_all(enterprise_dict)
+            if ml_result:
+                ml_default_prob = ml_result.get("default_probability")
+                ml_credit_rating = ml_result.get("credit_rating")
+                ml_risk_level = ml_result.get("risk_level")
+                ml_enhanced = True
+    except Exception as e:
+        logger.warning(f"ML inference unavailable, using rule-based only: {e}")
 
     return EvaluationResult(
         score=score,
