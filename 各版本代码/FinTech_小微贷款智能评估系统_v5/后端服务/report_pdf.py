@@ -24,24 +24,39 @@ from reportlab.pdfbase.pdfmetrics import registerFontFamily
 # ============================================================
 _CN_FONT = "SimHei"
 
+_PDF_AVAILABLE = False
+
 def _init_font():
-    for path in [
+    global _PDF_AVAILABLE
+    # Ordered by platform preference
+    candidates = [
+        # macOS (most common CJK fonts)
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        # Windows
         "C:/Windows/Fonts/simhei.ttf",
         "C:/Windows/Fonts/msyh.ttc",
         "C:/Windows/Fonts/simsun.ttc",
-        "/System/Library/Fonts/PingFang.ttc",
+        # Linux
         "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-    ]:
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    ]
+    for path in candidates:
         if os.path.exists(path):
             try:
                 is_ttc = path.endswith('.ttc')
                 pdfmetrics.registerFont(TTFont(_CN_FONT, path, subfontIndex=0) if is_ttc else TTFont(_CN_FONT, path))
                 registerFontFamily(_CN_FONT, normal=_CN_FONT, bold=_CN_FONT)
+                _PDF_AVAILABLE = True
                 print(f"[PDF] Font: {_CN_FONT} ({os.path.basename(path)})")
                 return
-            except Exception:
+            except Exception as e:
+                print(f"[PDF] Failed to load {path}: {e}")
                 continue
-    print("[PDF] WARNING: No CJK font found")
+    print("[PDF] WARNING: No CJK font found — PDF export disabled")
 
 _init_font()
 
@@ -303,7 +318,12 @@ def _build_story(result, enterprise, doc_width):
     return story
 
 
+def is_available() -> bool:
+    return _PDF_AVAILABLE
+
 def generate_pdf_bytes(evaluation_result: dict, enterprise_info: dict = None) -> io.BytesIO:
+    if not _PDF_AVAILABLE:
+        raise RuntimeError("PDF export unavailable: no CJK font found. Install a Chinese font (e.g., PingFang/SimHei/Noto Sans CJK).")
     enterprise = enterprise_info or {}
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=22*mm, rightMargin=22*mm,

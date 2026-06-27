@@ -151,3 +151,4 @@ class ApiResponse(BaseModel):
     success: bool
     data: Optional[EvaluationResult] = None
     error: Optional[str] = None
+    meta: Optional[dict] = None

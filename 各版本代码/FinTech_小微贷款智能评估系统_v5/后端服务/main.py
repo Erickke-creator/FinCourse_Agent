@@ -107,15 +107,15 @@ async def evaluate_loan_application(inp: LoanInput):
         elapsed = time.time() - start_time
 
         # Inject metadata
-        result_dict = result.model_dump()
-        result_dict["_meta"] = {
+        meta = {
             "evaluation_time_ms": round(elapsed * 1000),
             "banks_evaluated": len(result.bank_matches),
             "engine_version": "5.0.0",
             "ml_available": result.ml_enhanced,
+            "ml_enhanced": result.ml_enhanced,
         }
 
-        return ApiResponse(success=True, data=result)
+        return ApiResponse(success=True, data=result, meta=meta)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

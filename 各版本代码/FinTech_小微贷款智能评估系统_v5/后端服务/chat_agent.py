@@ -279,17 +279,22 @@ async def _stress_test_tool(**kwargs) -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-async def _pdf_export_tool(enterprise_name: str = "") -> dict:
+async def _pdf_export_tool(enterprise_name: str = "", eval_result: dict = None) -> dict:
     try:
-        # 获取当前 session 的评估结果
-        from report_pdf import generate_pdf_report
-        # 先从评估引擎生成一份报告数据
-        from bank_engine import evaluate_loan
-        from models import LoanInput
-        inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
-        result = evaluate_loan(inp)
-        path = generate_pdf_report(result.model_dump(), {"name": enterprise_name})
-        # 返回下载标记，ChatPanel 前端会识别并渲染下载按钮
+        from report_pdf import generate_pdf_report, is_available as pdf_ok
+        if not pdf_ok():
+            return {"success": False, "error": "PDF 导出不可用：未找到中文字体（需要 PingFang/SimHei/Noto Sans CJK）"}
+
+        # 优先使用传入的评估结果，否则生成默认报告
+        if eval_result and eval_result.get("score"):
+            result_data = eval_result
+        else:
+            from bank_engine import evaluate_loan
+            from models import LoanInput
+            inp = LoanInput(requested_amount=500000, loan_term=12, industry="other")
+            result_data = evaluate_loan(inp).model_dump()
+
+        path = generate_pdf_report(result_data, {"name": enterprise_name})
         return {
             "success": True,
             "file_path": path,
@@ -352,6 +357,7 @@ class ChatSession:
     enterprise_profile: dict = field(default_factory=dict)
     download_url: str = ""
     download_label: str = ""
+    last_evaluation: dict = field(default_factory=dict)  # v5: store last eval result
     created_at: str = ""
 
 _active_sessions: dict[str, ChatSession] = {}
@@ -456,8 +462,13 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
                             result = await _search_enterprise_tool(**func_args)
                         elif func_name == "evaluate_loan":
                             result = await _evaluate_loan_tool(**func_args)
+                            if isinstance(result, dict) and result.get("success"):
+                                session.last_evaluation = result  # v5: save for PDF export
                         elif func_name == "export_pdf_report":
-                            result = await _pdf_export_tool(**func_args)
+                            result = await _pdf_export_tool(
+                                enterprise_name=func_args.get("enterprise_name", ""),
+                                eval_result=session.last_evaluation
+                            )
                         else:
                             result = tool_func(**func_args)
                     except Exception as e:
