@@ -11,6 +11,8 @@ import json
 import os
 import httpx
 import re
+import inspect
+import time
 from typing import Optional
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
@@ -19,7 +21,8 @@ from dotenv import load_dotenv
 from kb_bridge import (
     KB_TOOLS_SCHEMA, KB_TOOL_MAP, get_kb_summary,
     search_policies, search_banks, search_cases, get_industry_rules,
-    get_credit_tolerance, get_subsidy_policies, get_macro_stats
+    get_credit_tolerance, get_subsidy_policies, get_macro_stats,
+    normalize_industry,
 )
 
 load_dotenv()
@@ -28,6 +31,10 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE = "https://api.deepseek.com/v1/chat/completions"
 MAX_TURNS = 6
 TIMEOUT = 30
+
+
+class AgentConfigurationError(RuntimeError):
+    """Chat Agent 缺少必要服务配置。"""
 
 # ============================================================
 # System Prompt
@@ -81,16 +88,27 @@ EVALUATION_TOOL_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "amount": {"type": "number", "description": "申请贷款金额（万元）"},
-                "term_years": {"type": "integer", "description": "贷款期限（年）"},
-                "industry": {"type": "string", "description": "所属行业"},
-                "business_years": {"type": "number", "description": "企业经营年限"},
-                "annual_revenue": {"type": "number", "description": "年营业收入（万元）"},
+                "requested_amount": {"type": "number", "description": "申请贷款金额（元）"},
+                "loan_term": {"type": "integer", "description": "贷款期限（月）"},
+                "industry": {"type": "string", "description": "所属行业，可传中文行业名或后端行业代码"},
+                "operating_years": {"type": "number", "description": "企业经营年限"},
+                "monthly_revenue": {"type": "number", "description": "月营业收入（元）"},
+                "monthly_fixed_cost": {"type": "number", "description": "月固定成本（元）"},
+                "existing_liabilities": {"type": "number", "description": "现有月负债或月还款（元）"},
+                "merchant_type": {"type": "string", "description": "主体类型: individual/enterprise/freelancer"},
+                "region": {"type": "string", "description": "所在地区，如广东省"},
                 "tax_level": {"type": "string", "description": "纳税等级: A/B/M/C/D"},
-                "has_collateral": {"type": "boolean", "description": "是否有抵押物"},
-                "credit_overdues": {"type": "integer", "description": "近2年征信逾期次数"},
+                "has_business_license": {"type": "boolean", "description": "是否有营业执照"},
+                "has_stable_bank_flow": {"type": "boolean", "description": "是否有稳定银行流水"},
+                "has_collateral_or_guarantor": {"type": "boolean", "description": "是否有抵押物或担保人"},
+                "has_overdue_record": {"type": "boolean", "description": "是否有历史逾期"},
+                "overdue_count_2yr": {"type": "integer", "description": "近2年征信逾期次数"},
+                "has_real_estate": {"type": "boolean", "description": "是否拥有房产"},
+                "real_estate_value": {"type": "number", "description": "房产估值（万元）"},
+                "is_ecommerce": {"type": "boolean", "description": "是否为电商经营"},
+                "is_tech_enterprise": {"type": "boolean", "description": "是否为科技型或专精特新企业"},
             },
-            "required": ["amount", "industry"]
+            "required": ["requested_amount", "industry", "operating_years", "monthly_revenue"]
         }
     }
 }
@@ -99,7 +117,7 @@ ENTERPRISE_SEARCH_SCHEMA = {
     "type": "function",
     "function": {
         "name": "search_enterprise",
-        "description": "在1159家企业数据库中模糊搜索企业名称，返回企业画像和预评估报告。",
+        "description": "在1100家教学企业画像库中模糊搜索企业名称，返回企业画像和预评估报告。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -180,11 +198,13 @@ MULTI_AGENT_SCHEMA = {
             "properties": {
                 "enterprise_name": {"type": "string", "description": "企业名称"},
                 "industry": {"type": "string", "description": "所属行业"},
-                "amount": {"type": "number", "description": "申请金额（万元）"},
-                "business_years": {"type": "number", "description": "经营年限"},
+                "requested_amount": {"type": "number", "description": "申请金额（元）"},
+                "loan_term": {"type": "integer", "description": "贷款期限（月）"},
+                "operating_years": {"type": "number", "description": "经营年限"},
+                "monthly_revenue": {"type": "number", "description": "月营业收入（元）"},
                 "tax_level": {"type": "string", "description": "纳税等级 A/B/M/C/D"},
             },
-            "required": ["industry", "amount"]
+            "required": ["industry", "requested_amount", "operating_years", "monthly_revenue"]
         }
     }
 }
@@ -192,51 +212,106 @@ MULTI_AGENT_SCHEMA = {
 # 合并所有 Tools
 ALL_TOOLS = KB_TOOLS_SCHEMA + [
     EVALUATION_TOOL_SCHEMA, ENTERPRISE_SEARCH_SCHEMA,
-    RAG_SEARCH_SCHEMA, STRESS_TEST_SCHEMA, PDF_EXPORT_SCHEMA,
+    RAG_SEARCH_SCHEMA, STRESS_TEST_SCHEMA,
     STALENESS_CHECK_SCHEMA, MULTI_AGENT_SCHEMA,
 ]
+
+
+def _first_present(data: dict, key: str, default=None):
+    value = data.get(key)
+    return default if value is None else value
+
+
+def _build_loan_input(kwargs: dict):
+    """
+    使用后端 LoanInput 真实字段构造输入。
+
+    旧字段仅作过渡兼容：amount 单位为万元、term_years 为年、
+    annual_revenue 为万元/年。Agent Schema 已不再暴露这些旧字段。
+    """
+    from models import LoanInput
+
+    requested_amount = kwargs.get("requested_amount")
+    if requested_amount is None and kwargs.get("amount") is not None:
+        requested_amount = float(kwargs["amount"]) * 10000
+    requested_amount = float(requested_amount if requested_amount is not None else 500000)
+
+    loan_term = kwargs.get("loan_term")
+    if loan_term is None and kwargs.get("term_years") is not None:
+        loan_term = int(float(kwargs["term_years"]) * 12)
+    loan_term = int(loan_term if loan_term is not None else 12)
+
+    monthly_revenue = kwargs.get("monthly_revenue")
+    if monthly_revenue is None and kwargs.get("annual_revenue") is not None:
+        monthly_revenue = float(kwargs["annual_revenue"]) * 10000 / 12
+    monthly_revenue = float(monthly_revenue if monthly_revenue is not None else 30000)
+
+    operating_years = kwargs.get("operating_years", kwargs.get("business_years", 3))
+    overdue_count = int(kwargs.get("overdue_count_2yr", kwargs.get("credit_overdues", 0)) or 0)
+    collateral = kwargs.get("has_collateral_or_guarantor", kwargs.get("has_collateral", False))
+    industry_code, _ = normalize_industry(str(kwargs.get("industry", "other")))
+    valid_industries = {item.value for item in __import__("models").IndustryType}
+    if industry_code not in valid_industries:
+        industry_code = "other"
+
+    tax_level = str(kwargs.get("tax_level", "M")).upper()
+    if tax_level not in {"A", "B", "M", "C", "D"}:
+        tax_level = "M"
+
+    merchant_type = str(kwargs.get("merchant_type", "enterprise")).lower()
+    merchant_aliases = {"个体户": "individual", "个体工商户": "individual", "小微企业": "enterprise", "企业": "enterprise", "自由职业": "freelancer"}
+    merchant_type = merchant_aliases.get(merchant_type, merchant_type)
+    if merchant_type not in {"individual", "enterprise", "freelancer"}:
+        merchant_type = "enterprise"
+
+    return LoanInput(
+        merchant_type=merchant_type,
+        operating_years=float(operating_years),
+        industry=industry_code,
+        region=str(kwargs.get("region", "广东省")),
+        monthly_revenue=monthly_revenue,
+        monthly_fixed_cost=float(_first_present(kwargs, "monthly_fixed_cost", monthly_revenue * 0.5)),
+        existing_liabilities=float(_first_present(kwargs, "existing_liabilities", 0)),
+        requested_amount=requested_amount,
+        loan_term=loan_term,
+        annual_rate=float(_first_present(kwargs, "annual_rate", 6.0)),
+        tax_level=tax_level,
+        has_business_license=bool(_first_present(kwargs, "has_business_license", True)),
+        has_stable_bank_flow=bool(_first_present(kwargs, "has_stable_bank_flow", False)),
+        has_overdue_record=bool(_first_present(kwargs, "has_overdue_record", overdue_count > 0)),
+        overdue_count_2yr=overdue_count,
+        has_collateral_or_guarantor=bool(collateral),
+        has_real_estate=bool(_first_present(kwargs, "has_real_estate", False)),
+        real_estate_value=float(_first_present(kwargs, "real_estate_value", 0)),
+        is_ecommerce=bool(_first_present(kwargs, "is_ecommerce", False)),
+        is_tech_enterprise=bool(_first_present(kwargs, "is_tech_enterprise", False)),
+    )
 
 
 async def _evaluate_loan_tool(**kwargs) -> dict:
     """执行贷款评估（桥接到 bank_engine）"""
     from bank_engine import evaluate_loan
-    from models import LoanInput
     try:
-        # Convert annual→monthly revenue, years→months term
-        amount_wy = kwargs.get("amount", 50)          # 万元
-        term_years = kwargs.get("term_years", 1)
-        annual_rev = kwargs.get("annual_revenue", 100)  # 万元/年
-        inp = LoanInput(
-            requested_amount=amount_wy * 10000,         # 万元 → 元
-            loan_term=term_years * 12,                   # 年 → 月
-            industry=kwargs.get("industry", "other"),
-            operating_years=kwargs.get("business_years", 3),
-            monthly_revenue=(annual_rev * 10000) / 12,  # 万元/年 → 元/月
-            tax_level=kwargs.get("tax_level", "M"),
-            has_collateral_or_guarantor=kwargs.get("has_collateral", False),
-            has_overdue_record=kwargs.get("credit_overdues", 0) > 0,
-            overdue_count_2yr=kwargs.get("credit_overdues", 0),
-        )
+        inp = _build_loan_input(kwargs)
         result = evaluate_loan(inp)
-        top_bank = result.bank_matches[0] if result.bank_matches else None
         return {
             "success": True,
             "score": result.score,
-            "risk_level": str(result.risk_level),
-            "health_score": result.enterprise_health_score,
+            "risk_level": result.risk_level.value,
+            "enterprise_health_score": result.enterprise_health_score,
             "suggested_amount": result.suggested_amount,
-            "top_bank_name": top_bank.bank_name if top_bank else None,
-            "top_bank_probability": top_bank.approval_probability if top_bank else None,
-            "top_matches": [
-                {"name": m.bank_name, "probability": m.approval_probability,
-                 "estimated_rate": m.estimated_interest_rate, "reasons": m.recommendation_reasons[:3]}
-                for m in (result.bank_matches or [])[:5]
-            ],
+            "suggested_term": result.suggested_term,
+            "monthly_repayment": result.monthly_repayment,
+            "repayment_pressure_ratio": result.repayment_pressure_ratio,
             "strengths": result.strengths,
             "risks": result.risks,
-            "materials": [{"name": m.name, "desc": m.description} for m in (result.recommended_materials or [])[:5]],
-            "ml_default_prob": getattr(result, "ml_default_prob", None),
-            "ml_credit_rating": getattr(result, "ml_credit_rating", None),
+            "improvement_tips": result.improvement_tips,
+            "bank_matches": [m.model_dump(mode="json") for m in (result.bank_matches or [])[:5]],
+            "recommended_materials": [m.model_dump(mode="json") for m in (result.recommended_materials or [])],
+            "ml_enhanced": result.ml_enhanced,
+            "ml_default_prob": result.ml_default_prob,
+            "ml_credit_rating": result.ml_credit_rating,
+            "ml_risk_level": result.ml_risk_level,
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -325,18 +400,14 @@ async def _multi_agent_tool(**kwargs) -> dict:
     try:
         from multi_agent import run_multi_agent_local
         from bank_engine import evaluate_loan
-        from models import LoanInput
-        amount_wy = kwargs.get("amount", 50)
-        inp = LoanInput(
-            requested_amount=amount_wy * 10000,
-            loan_term=kwargs.get("term_years", 1) * 12,
-            industry=kwargs.get("industry", "other"),
-            operating_years=kwargs.get("business_years", 3),
-            tax_level=kwargs.get("tax_level", "M"),
-        )
+        inp = _build_loan_input(kwargs)
         result = evaluate_loan(inp)
-        info = {"name": kwargs.get("enterprise_name", ""), "industry": kwargs.get("industry", ""),
-                "amount": kwargs.get("amount", 50), "annual_revenue": 100}
+        info = {
+            "name": kwargs.get("enterprise_name", ""),
+            "industry": kwargs.get("industry", ""),
+            "amount": inp.requested_amount / 10000,
+            "annual_revenue": inp.monthly_revenue * 12 / 10000,
+        }
         return run_multi_agent_local(result.model_dump(), info)
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -344,14 +415,27 @@ async def _multi_agent_tool(**kwargs) -> dict:
 # 完整的 Tool Map
 TOOL_MAP = {
     **KB_TOOL_MAP,
-    "evaluate_loan": lambda **kw: _evaluate_loan_tool(**kw),
-    "search_enterprise": lambda name="", **kw: _search_enterprise_tool(name),
-    "semantic_search_kb": lambda **kw: _semantic_search_tool(**kw),
-    "run_stress_test": lambda **kw: _stress_test_tool(**kw),
-    "export_pdf_report": lambda **kw: _pdf_export_tool(**kw),
-    "check_kb_staleness": lambda **kw: _staleness_check_tool(),
-    "run_multi_agent_analysis": lambda **kw: _multi_agent_tool(**kw),
+    "evaluate_loan": _evaluate_loan_tool,
+    "search_enterprise": _search_enterprise_tool,
+    "semantic_search_kb": _semantic_search_tool,
+    "run_stress_test": _stress_test_tool,
+    "check_kb_staleness": _staleness_check_tool,
+    "run_multi_agent_analysis": _multi_agent_tool,
 }
+
+
+async def _execute_tool(func_name: str, func_args: dict) -> dict | list:
+    """统一执行同步和异步 Agent 工具，确保协程不会被序列化成字符串。"""
+    tool_func = TOOL_MAP.get(func_name)
+    if not tool_func:
+        return {"success": False, "error": f"未知工具: {func_name}"}
+    try:
+        result = tool_func(**func_args)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+    except Exception as exc:
+        return {"success": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
 # ============================================================
@@ -365,7 +449,7 @@ class ChatSession:
     download_url: str = ""
     download_label: str = ""
     last_evaluation: dict = field(default_factory=dict)  # v5: store last eval result
-    created_at: str = ""
+    created_at: float = field(default_factory=time.time)
 
 _active_sessions: dict[str, ChatSession] = {}
 
@@ -410,7 +494,9 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
     user_message → DeepSeek V4 → [tool_calls → execute → observe] × N → 最终回复
     """
     if not is_llm_available():
-        return _fallback_response(user_message)
+        raise AgentConfigurationError(
+            "Chat Agent 未配置 DEEPSEEK_API_KEY，已禁用无 Key 的伪智能降级回答。"
+        )
 
     session = get_or_create_session(session_id)
     system_prompt = _build_system_prompt()
@@ -485,37 +571,25 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
 
             for tc in tool_calls:
                 func_name = tc["function"]["name"]
-                func_args = json.loads(tc["function"]["arguments"])
-
-                tool_func = TOOL_MAP.get(func_name)
-                if tool_func:
-                    try:
-                        if func_name == "search_enterprise":
-                            result = await _search_enterprise_tool(**func_args)
-                        elif func_name == "evaluate_loan":
-                            result = await _evaluate_loan_tool(**func_args)
-                            if isinstance(result, dict) and result.get("success"):
-                                session.last_evaluation = result
-                                # v5: 保存评分历史
-                                try:
-                                    from chat_history import save_evaluation
-                                    save_evaluation(session.session_id, result.get("score", 0),
-                                                    result.get("risk_level", ""),
-                                                    func_args.get("industry", "unknown"),
-                                                    result)
-                                except Exception:
-                                    pass
-                        elif func_name == "export_pdf_report":
-                            result = await _pdf_export_tool(
-                                enterprise_name=func_args.get("enterprise_name", ""),
-                                eval_result=session.last_evaluation
-                            )
-                        else:
-                            result = tool_func(**func_args)
-                    except Exception as e:
-                        result = {"success": False, "error": str(e)}
+                try:
+                    func_args = json.loads(tc["function"].get("arguments") or "{}")
+                except json.JSONDecodeError as exc:
+                    result = {"success": False, "error": f"工具参数不是有效 JSON: {exc}"}
                 else:
-                    result = {"success": False, "error": f"未知工具: {func_name}"}
+                    result = await _execute_tool(func_name, func_args)
+                    if func_name == "evaluate_loan" and isinstance(result, dict) and result.get("success"):
+                        session.last_evaluation = result
+                        try:
+                            from chat_history import save_evaluation
+                            save_evaluation(
+                                session.session_id,
+                                result.get("score", 0),
+                                result.get("risk_level", ""),
+                                func_args.get("industry", "unknown"),
+                                result,
+                            )
+                        except Exception:
+                            pass
 
                 # v5: 检测下载动作
                 if isinstance(result, dict) and result.get("__action") == "download_pdf":
@@ -535,46 +609,6 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
             return msg["content"]
 
     return "分析过程中需要的信息较多，请尝试更具体地描述您的问题。"
-
-
-# ============================================================
-# 降级模式（无 API Key）
-# ============================================================
-def _fallback_response(user_message: str) -> str:
-    """无 LLM 时的降级：基于知识库搜索给出建议"""
-    msg_lower = user_message.lower()
-
-    # 尝试搜索知识库
-    policies = search_policies(user_message, top_n=2)
-    cases = search_cases(industry="", scenario="")
-
-    lines = [
-        "当前 AI 分析服务未启用（未配置 DeepSeek API Key）。",
-        "",
-    ]
-
-    # 尝试企业搜索
-    for word in user_message.split():
-        if len(word) >= 2:
-            try:
-                from enterprise_search import analyze_enterprise
-                report = analyze_enterprise(word)
-                if report and report.get("found"):
-                    lines.append(f"找到企业 `{word}` 的预评估报告。")
-                    lines.append(f"评分: {report.get('score')}, 风险: {report.get('risk_level')}")
-                    lines.append(f"推荐银行: {report.get('top_bank', '暂无')}")
-                    break
-            except:
-                pass
-
-    if policies:
-        lines.append(f"相关政策: {policies[0].get('document_title', '')}")
-    if cases:
-        lines.append(f"相似案例: {cases[0].get('id', '')} - {cases[0].get('result', '')}")
-
-    lines.append("")
-    lines.append("启用 AI 分析：在 `.env` 中添加 `DEEPSEEK_API_KEY=sk-xxx`。")
-    return "\n".join(lines)
 
 
 def _extract_profile(session: ChatSession, user_msg: str, ai_reply: str):

@@ -30,6 +30,10 @@ jobs:
           print(get_kb_summary()[:200])
           print('All imports OK')
           "
+      - name: Run Chat Agent tool tests
+        run: |
+          cd 各版本代码/FinTech_小微贷款智能评估系统_v5/后端服务
+          python -m unittest discover -s tests -p "test_*.py" -v
 
   knowledge-check:
     runs-on: ubuntu-latest
