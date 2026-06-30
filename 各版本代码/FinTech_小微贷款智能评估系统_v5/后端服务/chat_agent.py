@@ -170,6 +170,21 @@ STALENESS_CHECK_SCHEMA = {
     }
 }
 
+ENTERPRISE_PROFILE_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "extract_enterprise_profile",
+        "description": "从用户自然语言描述中提取企业关键信息，返回结构化数据供自动填表。当用户用口语描述自己的企业时调用此工具。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "用户对企业/生意的自然语言描述"}
+            },
+            "required": ["description"]
+        }
+    }
+}
+
 MULTI_AGENT_SCHEMA = {
     "type": "function",
     "function": {
@@ -193,7 +208,7 @@ MULTI_AGENT_SCHEMA = {
 ALL_TOOLS = KB_TOOLS_SCHEMA + [
     EVALUATION_TOOL_SCHEMA, ENTERPRISE_SEARCH_SCHEMA,
     RAG_SEARCH_SCHEMA, STRESS_TEST_SCHEMA, PDF_EXPORT_SCHEMA,
-    STALENESS_CHECK_SCHEMA, MULTI_AGENT_SCHEMA,
+    STALENESS_CHECK_SCHEMA, MULTI_AGENT_SCHEMA, ENTERPRISE_PROFILE_SCHEMA,
 ]
 
 
@@ -321,6 +336,37 @@ async def _staleness_check_tool() -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+# 企业画像提取（LLM解析 → 自动填表）
+async def _extract_profile_tool(description: str) -> dict:
+    if not description or len(description) < 5:
+        return {"success": False, "error": "请提供更详细的企业描述（至少5个字）"}
+    # 调用 LLM 解析
+    try:
+        import httpx, os
+        key = os.getenv("DEEPSEEK_API_KEY", "")
+        if not key:
+            return {"success": False, "error": "AI 服务未配置"}
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json={
+                    "model": "deepseek-chat", "temperature": 0.1, "max_tokens": 400,
+                    "messages": [{"role": "system", "content": """从用户描述中提取企业贷款评估所需信息，返回严格JSON：
+{"merchant_type":"individual/enterprise/freelancer","industry":"餐饮业/制造业/批发零售/IT科技/农业/建筑/电商/物流/其他","operating_years":3,"monthly_revenue":80000,"monthly_fixed_cost":40000,"existing_liabilities":0,"requested_amount":200000,"loan_term":12,"tax_level":"A/B/M/C/D","has_business_license":true,"has_stable_bank_flow":true,"has_overdue_record":false,"has_collateral_or_guarantor":false,"region":"广东省","enterprise_name":"企业名"}
+如果某字段不确定，用合理默认值。只返回JSON，不要其他文字。"""},
+                    {"role": "user", "content": description}
+                ]})
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"]["content"]
+            import json as _json
+            profile = _json.loads(raw)
+            profile["__action"] = "autofill_form"
+            profile["success"] = True
+            return profile
+    except Exception as e:
+        return {"success": False, "error": f"提取失败: {str(e)}"}
+
 async def _multi_agent_tool(**kwargs) -> dict:
     try:
         from multi_agent import run_multi_agent_local
@@ -351,6 +397,7 @@ TOOL_MAP = {
     "export_pdf_report": lambda **kw: _pdf_export_tool(**kw),
     "check_kb_staleness": lambda **kw: _staleness_check_tool(),
     "run_multi_agent_analysis": lambda **kw: _multi_agent_tool(**kw),
+    "extract_enterprise_profile": lambda **kw: _extract_profile_tool(**kw),
 }
 
 
@@ -364,7 +411,8 @@ class ChatSession:
     enterprise_profile: dict = field(default_factory=dict)
     download_url: str = ""
     download_label: str = ""
-    last_evaluation: dict = field(default_factory=dict)  # v5: store last eval result
+    last_evaluation: dict = field(default_factory=dict)
+    autofill_data: dict = field(default_factory=dict)      # v5: 自动填表数据
     created_at: str = ""
 
 _active_sessions: dict[str, ChatSession] = {}
@@ -521,8 +569,11 @@ async def run_agent(user_message: str, session_id: str = "default") -> str:
                 if isinstance(result, dict) and result.get("__action") == "download_pdf":
                     session.download_url = result.get("download_url")
                     session.download_label = result.get("enterprise_name", "下载报告")
-                    # 不让 LLM 看到 __action 内部字段
                     result = {"success": True, "message": result.get("message", "")}
+                # v5: 检测自动填表动作
+                if isinstance(result, dict) and result.get("__action") == "autofill_form":
+                    session.autofill_data = {k: v for k, v in result.items()
+                                             if k not in ("__action", "success") and v is not None}
 
                 messages.append({
                     "role": "tool",

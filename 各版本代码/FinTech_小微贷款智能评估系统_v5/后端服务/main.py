@@ -152,8 +152,9 @@ class ChatResponse(PydanticBase):
     reply: str
     session_id: str = ""
     ai_available: bool = False
-    download_url: Optional[str] = None       # v5: PDF 下载链接
-    download_label: Optional[str] = None     # v5: 下载按钮文字
+    download_url: Optional[str] = None
+    download_label: Optional[str] = None
+    autofill_data: Optional[dict] = None      # v5: 自动填表数据
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -166,6 +167,10 @@ async def chat_endpoint(req: ChatRequest):
         session = get_or_create_session(req.session_id)
         download_url = None
         download_label = None
+        autofill_data = None
+        if session.autofill_data:
+            autofill_data = dict(session.autofill_data)
+            session.autofill_data = {}
         if session.download_url:
             # 构建完整的下载 URL
             download_url = session.download_url
@@ -181,6 +186,7 @@ async def chat_endpoint(req: ChatRequest):
             ai_available=is_llm_available(),
             download_url=download_url,
             download_label=download_label,
+            autofill_data=autofill_data,
         )
     except Exception as e:
         return ChatResponse(

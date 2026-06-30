@@ -290,7 +290,7 @@ export default function App() {
           ? <BankMatchPanel bankMatches={evaluationResult.bankMatches} requestedAmount={inputs.requestedAmount} />
           : <div className="text-center py-20 text-slate-400">请先完成评估</div>;
       case 'chat':
-        return <ChatPanel />;
+        return <ChatPanel onAutofill={(data) => { setInputs(prev => ({ ...prev, ...data })); setActiveNav('input'); }} />;
       case 'network':
         return <SupplyChainGraph input={inputs} />;
       case 'materials':

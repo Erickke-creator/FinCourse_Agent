@@ -16,6 +16,8 @@ interface ChatMessage {
   timestamp: Date;
   downloadUrl?: string;
   downloadLabel?: string;
+  autofillData?: any;
+  onAutofill?: (data: any) => void;
 }
 
 // 推荐问题
@@ -33,7 +35,7 @@ const SUGGESTED_QUESTIONS = [
 // API地址（开发环境默认 localhost，部署时改为实际域名）
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
-export default function ChatPanel() {
+export default function ChatPanel({ onAutofill }: { onAutofill?: (data: any) => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -183,6 +185,8 @@ export default function ChatPanel() {
           timestamp: new Date(),
           downloadUrl: data.download_url || undefined,
           downloadLabel: data.download_label || undefined,
+          autofillData: data.autofill_data || undefined,
+          onAutofill: onAutofill,
         };
         setMessages(prev => [...prev, assistantMsg]);
       } else {
@@ -343,6 +347,39 @@ export default function ChatPanel() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       {msg.downloadLabel || '下载 PDF 报告'}
+                    </button>
+                  </div>
+                )}
+                {/* v5: 自动填表按钮 */}
+                {msg.autofillData && msg.onAutofill && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => {
+                        const d = msg.autofillData;
+                        const mapped = {
+                          merchantType: d.merchant_type === 'enterprise' ? 'enterprise' : d.merchant_type === 'freelancer' ? 'freelancer' : 'individual',
+                          industry: d.industry || 'other',
+                          operatingYears: d.operating_years || 1,
+                          monthlyRevenue: d.monthly_revenue || 30000,
+                          monthlyFixedCost: d.monthly_fixed_cost || 15000,
+                          existingLiabilities: d.existing_liabilities || 0,
+                          requestedAmount: d.requested_amount || 50000,
+                          loanTerm: d.loan_term || 12,
+                          taxLevel: d.tax_level || 'M',
+                          hasBusinessLicense: d.has_business_license !== false,
+                          hasStableBankFlow: d.has_stable_bank_flow === true,
+                          hasOverdueRecord: d.has_overdue_record === true,
+                          hasCollateralOrGuarantor: d.has_collateral_or_guarantor === true,
+                          region: d.region || '广东省',
+                        };
+                        msg.onAutofill!(mapped);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-lg transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      一键填入评估表单
                     </button>
                   </div>
                 )}
