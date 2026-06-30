@@ -334,7 +334,7 @@ async def chat_stream(req: ChatRequest):
 # ============================================================
 # v5: 银行数据同步（BANKS_DB → bank_products.json）
 # ============================================================
-@app.get("/api/admin/sync-banks")
+@app.post("/api/ml/explain")
 async def sync_banks():
     """将 bank_engine.BANKS_DB 导出为 bank_products.json（统一数据源）"""
     try:
@@ -408,6 +408,94 @@ async def repayment_schedule(amount: float = 100000, rate: float = 6.0, term: in
         "total_payment": round(monthly_payment * term, 2),
         "schedule": schedule,
     }
+
+# ============================================================
+# v5: ML 可解释性
+# ============================================================
+@app.post("/api/ml/explain")
+async def explain_ml(inp: LoanInput):
+    """返回 ML 预测的特征归因分析"""
+    try:
+        import numpy as np
+        from ml_inference import MLPredictor
+        predictor = MLPredictor()
+        if not predictor.load_models():
+            return {"success": False, "error": "ML 模型不可用"}
+        enterprise_dict = {
+            "operating_years": inp.operating_years, "monthly_revenue": inp.monthly_revenue,
+            "monthly_fixed_cost": inp.monthly_fixed_cost, "existing_liabilities": inp.existing_liabilities,
+            "has_overdue_record": 1 if inp.has_overdue_record else 0,
+            "has_collateral_or_guarantor": 1 if inp.has_collateral_or_guarantor else 0,
+            "has_business_license": 1 if inp.has_business_license else 0,
+            "industry": str(inp.industry), "tax_level": str(inp.tax_level),
+            "overdue_count_2yr": inp.overdue_count_2yr,
+        }
+        prob = predictor.predict_default_probability(enterprise_dict)
+        # XGBoost feature importance
+        importances = predictor.xgb_default.feature_importances_
+        feat_names = predictor.feature_cols if hasattr(predictor, 'feature_cols') else [f'feature_{i}' for i in range(24)]
+        # Chinese-friendly names
+        name_map = {
+            'business_age_years': '经营年限', 'annual_revenue_wan': '年营收', 'annual_profit_wan': '年利润',
+            'profit_margin': '利润率', 'cash_flow_wan': '现金流', 'asset_liability_ratio': '资产负债率',
+            'invalid_invoice_ratio': '无效发票率', 'supplier_count': '供应商数', 'customer_count': '客户数',
+            'customer_concentration': '客户集中度', 'tax_score': '纳税评分', 'annual_tax_wan': '年纳税额',
+            'has_default_history': '违约历史', 'overdue_count_2yr': '逾期次数', 'credit_inquiry_3m': '征信查询',
+            'legal_disputes': '法律纠纷', 'has_real_estate': '不动产', 'real_estate_value_wan': '不动产价值',
+            'has_other_collateral': '其他抵押', 'revenue_volatility': '营收波动', 'is_ecommerce': '电商',
+            'is_tech_enterprise': '科技企业', 'industry_encoded': '行业', 'tax_level_encoded': '纳税等级',
+        }
+        top_idx = np.argsort(importances)[-6:][::-1]
+        factors = []
+        for idx in top_idx:
+            name = feat_names[idx] if idx < len(feat_names) else f'feature_{idx}'
+            factors.append({"feature": name_map.get(name, name), "importance": round(float(importances[idx]) * 100, 1)})
+
+        verdict = "低风险" if prob and prob < 0.3 else ("中等风险" if prob and prob < 0.6 else "高风险")
+        return {"success": True, "default_probability": round(prob, 4) if prob else None, "verdict": verdict, "top_factors": factors[:5]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ============================================================
+# v5: Excel 批量评估
+# ============================================================
+@app.post("/api/evaluate/batch")
+async def batch_evaluate(payload: list[LoanInput]):
+    """批量评估：接受企业列表 → 返回对比结果"""
+    results = []
+    for i, inp in enumerate(payload):
+        r = evaluate_loan(inp)
+        results.append({"index": i, "score": r.score, "risk_level": str(r.risk_level),
+                        "enterprise_health_score": r.enterprise_health_score,
+                        "top_bank": r.bank_matches[0].bank_name if r.bank_matches else "N/A",
+                        "suggested_amount": r.suggested_amount,
+                        "monthly_repayment": round(r.monthly_repayment, 0)})
+    # Sort by score descending
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return {"success": True, "count": len(results), "ranking": results}
+
+@app.get("/api/admin/sync-banks")
+async def sync_banks():
+    """将 bank_engine.BANKS_DB 导出为 bank_products.json（统一数据源）"""
+    try:
+        banks_json_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "kb", "data", "banks", "bank_products.json"
+        )
+        banks_list = [{"id": b.get("id",""), "name":b.get("name",""), "type":b.get("type",""),
+                       "product_name":b.get("product_name",""), "loan_type":b.get("loan_type",""),
+                       "max_amount_credit":b.get("max_amount_credit",0),
+                       "min_rate":b.get("min_rate",0), "max_term_years":b.get("max_term_years",0),
+                       "min_business_years":b.get("min_business_years",0),
+                       "target_enterprise":b.get("target_enterprise","")} for b in BANKS_DB]
+        data = {"metadata":{"total_banks":len(banks_list),"source":"bank_engine.BANKS_DB",
+                "synced_at":datetime.now().isoformat()},"banks":banks_list}
+        os.makedirs(os.path.dirname(banks_json_path), exist_ok=True)
+        with open(banks_json_path,"w",encoding="utf-8") as f:
+            json_module.dump(data,f,ensure_ascii=False,indent=2)
+        return {"success":True,"banks_synced":len(banks_list)}
+    except Exception as e:
+        return {"success":False,"error":str(e)}
 
 @app.get("/api/scores/history")
 async def score_history(session_id: str = "", limit: int = 5):
