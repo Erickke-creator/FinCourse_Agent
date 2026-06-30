@@ -489,24 +489,47 @@ def evaluate_loan(inp: LoanInput) -> EvaluationResult:
         if inp.monthly_revenue > 0 else 200.0
     )
 
-    # 2. Five-dimension scoring
+    # 2. Five-dimension scoring (v5: ML-calibrated weights)
+    # Fetch ML feature importance for weight calibration
+    ml_weights = {}
+    try:
+        from ml_inference import MLPredictor
+        p = MLPredictor()
+        if p.load_models():
+            importances = p.xgb_default.feature_importances_
+            cols = getattr(p, 'feature_cols', [f'f{i}' for i in range(24)])
+            for c, w in zip(cols, importances):
+                ml_weights[c] = float(w)
+    except Exception:
+        pass
+
     # A. Operating strength (0-20)
+    yrs_weight = ml_weights.get('business_age_years', 0.08) / 0.08 if ml_weights else 1.0
     operating_strength = 0.0
     if inp.operating_years >= 5:
-        operating_strength += 10
+        operating_strength += round(10 * yrs_weight)
     elif inp.operating_years >= 3:
-        operating_strength += 8
+        operating_strength += round(8 * yrs_weight)
     elif inp.operating_years >= 1:
-        operating_strength += 5
+        operating_strength += round(5 * yrs_weight)
     else:
-        operating_strength += 3
-    operating_strength += 6 if inp.has_business_license else 1
+        operating_strength += max(1, round(3 * yrs_weight))
+    operating_strength += round(6 * min(yrs_weight, 1.5)) if inp.has_business_license else 1
     if inp.merchant_type == MerchantType.enterprise:
         operating_strength += 4
     elif inp.merchant_type == MerchantType.individual:
         operating_strength += 3
     else:
         operating_strength += 2
+    operating_strength = min(20, max(1, operating_strength))
+
+    # v5: Supply chain risk (from industry type + revenue volatility)
+    supply_chain_risk = 0.0
+    high_concentration_industries = ['manufacturing', 'wholesale_retail', 'construction']
+    if str(inp.industry) in high_concentration_industries and inp.monthly_revenue < 50000:
+        supply_chain_risk = -3  # small manufacturer with likely concentrated supply chain
+    if inp.is_ecommerce:
+        supply_chain_risk += 2  # e-commerce has diversified channels
 
     # B. Cash flow coverage (0-20)
     cash_flow_coverage = 0.0
@@ -552,7 +575,7 @@ def evaluate_loan(inp: LoanInput) -> EvaluationResult:
     else:
         leverage_risk = 2.0
 
-    raw_score = operating_strength + cash_flow_coverage + credit_compliance + credit_enhancement + leverage_risk
+    raw_score = operating_strength + cash_flow_coverage + credit_compliance + credit_enhancement + leverage_risk + supply_chain_risk
     if inp.has_overdue_record:
         raw_score = min(raw_score, 48)
     score = max(10, min(100, raw_score))
@@ -705,6 +728,7 @@ def evaluate_loan(inp: LoanInput) -> EvaluationResult:
             credit_compliance=credit_compliance,
             credit_enhancement=credit_enhancement,
             leverage_risk=leverage_risk,
+            supply_chain_risk=supply_chain_risk,
         ),
         ml_enhanced=ml_enhanced,
         ml_default_prob=ml_default_prob,

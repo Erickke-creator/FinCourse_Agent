@@ -92,6 +92,7 @@ class ScoreBreakdown(BaseModel):
     credit_compliance: float
     credit_enhancement: float
     leverage_risk: float
+    supply_chain_risk: float = 0.0  # v5: 供应链风险评分
 
 
 class BankMatchResult(BaseModel):

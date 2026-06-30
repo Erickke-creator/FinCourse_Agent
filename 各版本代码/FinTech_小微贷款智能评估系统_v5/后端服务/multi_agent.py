@@ -200,8 +200,18 @@ async def run_multi_agent(enterprise_profile: dict) -> dict:
 
 
 def run_multi_agent_sync(enterprise_profile: dict) -> dict:
-    """同步包装器（供 Agent Tool 调用）"""
-    return asyncio.run(run_multi_agent(enterprise_profile))
+    """同步包装器：优先 LLM 真并行，降级本地规则"""
+    if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+        try:
+            return asyncio.run(run_multi_agent(enterprise_profile))
+        except Exception as e:
+            print(f"[MultiAgent] LLM mode failed, falling back to local: {e}")
+    from bank_engine import evaluate_loan
+    from models import LoanInput
+    inp = LoanInput(requested_amount=enterprise_profile.get("amount", 50) * 10000,
+                    loan_term=12, industry=enterprise_profile.get("industry", "other"))
+    result = evaluate_loan(inp)
+    return run_multi_agent_local(result.model_dump(), enterprise_profile)
 
 
 # ============================================================

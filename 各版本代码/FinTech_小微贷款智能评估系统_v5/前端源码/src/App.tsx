@@ -16,6 +16,8 @@ import SupplyChainGraph from './components/SupplyChainGraph';
 import ChatPanel from './components/ChatPanel';
 import InclusiveFinanceSlide from './components/InclusiveFinanceSlide';
 import RepaymentSchedule from './components/RepaymentSchedule';
+import ScoreHistory from './components/ScoreHistory';
+import BankFilter from './components/BankFilter';
 
 import {
   Calculator, FileText, BarChart3, Building2, Landmark,
@@ -130,7 +132,7 @@ const DEMO_CASES: Record<string, { label: string; icon: any; desc: string; data:
 // ============================================================
 // 导航定义
 // ============================================================
-type NavSection = 'chat' | 'input' | 'risk' | 'banks' | 'repay' | 'network' | 'materials' | 'about';
+type NavSection = 'chat' | 'input' | 'risk' | 'banks' | 'repay' | 'trend' | 'network' | 'materials' | 'about';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: any; desc?: string }[] = [
   { id: 'chat', label: '智能对话', icon: Sparkles, desc: 'AI贷款顾问' },
@@ -138,6 +140,7 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: any; desc?: string }[] =
   { id: 'risk', label: '风险评估', icon: BarChart3, desc: '信用评分诊断' },
   { id: 'banks', label: '银行匹配', icon: Landmark, desc: '26行通过率预测' },
   { id: 'repay', label: '还款计划', icon: BarChart3, desc: '逐月明细' },
+  { id: 'trend', label: '评分趋势', icon: BarChart3, desc: '历史对比' },
   { id: 'network', label: '关系网络', icon: ShoppingCart, desc: '供应链图谱' },
   { id: 'materials', label: '材料清单', icon: ClipboardCheck, desc: '申贷材料准备' },
   { id: 'about', label: '普惠金融', icon: BookOpen, desc: 'FinTech理论' },
@@ -291,8 +294,18 @@ export default function App() {
         return evaluationResult.bankMatches?.length > 0
           ? <BankMatchPanel bankMatches={evaluationResult.bankMatches} requestedAmount={inputs.requestedAmount} />
           : <div className="text-center py-20 text-slate-400">请先完成评估</div>;
+      case 'banks':
+        return (
+          <div className="space-y-6">
+            {evaluationResult.bankMatches?.length > 0 && (
+              <BankFilter banks={evaluationResult.bankMatches} />
+            )}
+          </div>
+        );
       case 'chat':
         return <ChatPanel onAutofill={(data) => { setInputs(prev => ({ ...prev, ...data })); setActiveNav('input'); }} />;
+      case 'trend':
+        return <ScoreHistory />;
       case 'repay':
         return <RepaymentSchedule amount={inputs.requestedAmount} rate={inputs.annualRate || 6.0} term={inputs.loanTerm} monthlyPayment={evaluationResult.monthlyRepayment} />;
       case 'network':

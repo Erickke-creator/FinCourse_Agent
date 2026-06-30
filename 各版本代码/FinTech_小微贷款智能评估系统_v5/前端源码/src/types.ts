@@ -126,6 +126,7 @@ export interface ScoreBreakdown {
   creditCompliance: number;     // 信用合规 0-20
   creditEnhancement: number;    // 信用增强 0-20
   leverageRisk: number;         // 杠杆风险 0-20
+  supplyChainRisk?: number;     // v5: 供应链风险
 }
 
 // ============================================
