@@ -152,21 +152,48 @@ async def run_multi_agent(enterprise_profile: dict) -> dict:
     for r in valid_results:
         all_flags.extend(r.data.get("risk_flags", []))
 
+    # v5: 分歧检测与仲裁
+    scores = [r.score for r in valid_results]
+    score_range = max(scores) - min(scores) if len(scores) >= 2 else 0
+    has_disagreement = score_range >= 2.5  # 置信度差距超过2.5分 = 分歧
+
+    arbitration_note = ""
+    if has_disagreement and len(valid_results) >= 2:
+        # 找分歧最大的两个Agent
+        sorted_agents = sorted(valid_results, key=lambda r: r.score)
+        low = sorted_agents[0]
+        high = sorted_agents[-1]
+        # Orchestrator 仲裁: 看谁有更具体的证据
+        low_detail = len(low.findings) if low.findings else 0
+        high_detail = len(high.findings) if high.findings else 0
+        # 证据更具体的一方胜出
+        winner = high if high_detail >= low_detail else low
+        arbitration_note = (
+            f"⚠️ Agent 分歧: {low.agent_name}(置信度{low.score}) vs {high.agent_name}(置信度{high.score})，"
+            f"差距{score_range:.1f}分。Orchestrator 采纳证据更充分的 {winner.agent_name} 的判断。"
+        )
+
     # Orchestrator 综合报告
     overall = "多 Agent 协作评估完成。\n\n"
     for r in valid_results:
-        overall += f"【{r.agent_name}】(置信度 {r.score}/10)\n{r.findings}\n建议: {r.recommendation}\n\n"
+        agreement_mark = "✓" if abs(r.score - avg_score) <= 2 else "⚠"
+        overall += f"{agreement_mark} 【{r.agent_name}】(置信度 {r.score}/10)\n{r.findings}\n→ {r.recommendation}\n\n"
+    if arbitration_note:
+        overall += f"\n{arbitration_note}"
 
     return {
         "success": True,
         "agents_deployed": len(valid_results),
         "agents_failed": 4 - len(valid_results),
         "average_confidence": round(avg_score, 1),
+        "score_range": round(score_range, 1),
+        "has_disagreement": has_disagreement,
+        "arbitration": arbitration_note if arbitration_note else None,
         "overall_assessment": overall,
         "risk_flags": list(set(all_flags)),
         "verdict": "建议放款" if avg_score >= 7 else ("谨慎放款" if avg_score >= 5 else "建议拒贷或大幅调整条件"),
         "agents": [
-            {"name": r.agent_name, "score": r.score, "recommendation": r.recommendation}
+            {"name": r.agent_name, "score": r.score, "recommendation": r.recommendation, "agrees": abs(r.score - avg_score) <= 2}
             for r in valid_results
         ],
     }

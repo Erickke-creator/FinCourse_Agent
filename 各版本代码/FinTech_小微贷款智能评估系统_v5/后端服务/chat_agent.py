@@ -53,12 +53,18 @@ SYSTEM_PROMPT_TEMPLATE = """你是一个专业的小微企业贷款智能顾问 
 - 回复简洁有条理，关键信息用 Emoji 或分段标注
 - 用户没有提供完整企业信息时，主动引导补充（行业、金额、经营年限、纳税等级）
 
-## 工具使用优先级
-1. **semantic_search_kb**（首选）：向量语义搜索，覆盖全部政策/案例/银行/补贴
-2. **search_policies / search_cases / search_banks**（精确查询）：需要特定结构化字段时使用
-3. **evaluate_loan**：执行完整贷款评估
+## 工具使用优先级（v5 深度优化）
+1. **semantic_search_kb**（首选）：向量语义搜索，自动并行关键词搜索、合并去重
+2. **evaluate_loan** → **counterfactual_analysis** → **what_if_analysis**：先评估→如需改进建议→再敏感性分析
+3. **search_policies / search_cases / search_banks**（精确查询）：结构化字段查询
 4. **run_stress_test**：现金流压力测试
-5. **run_multi_agent_analysis**：多Agent综合评估
+5. **run_multi_agent_analysis**：多Agent综合评估（分歧时Orchestrator裁决）
+
+## 工具链编排规则
+- 用户提到具体金额/行业/年限 → 自动：evaluate_loan → search_policies → search_banks
+- 用户问"怎么改进" → 自动：counterfactual_analysis → what_if_analysis
+- 用户描述企业 → 自动：extract_enterprise_profile → evaluate_loan
+- 多Agent评估出现分歧 → Orchestrator比较推理链 → 选证据最强的答案
 
 ## 风险提示
 - 所有分析仅供参考，实际贷款审批以银行终审为准
@@ -170,6 +176,39 @@ STALENESS_CHECK_SCHEMA = {
     }
 }
 
+WHAT_IF_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "what_if_analysis",
+        "description": "敏感性分析：给定参数变更（如增加抵押物、提升纳税等级），模拟评分变化。用户问'如果有担保人会怎样'时使用。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "has_collateral_or_guarantor": {"type": "boolean", "description": "增加抵押/担保"},
+                "tax_level": {"type": "string", "description": "纳税等级: A/B/M/C/D"},
+                "has_stable_bank_flow": {"type": "boolean", "description": "稳定银行流水"},
+                "has_business_license": {"type": "boolean", "description": "营业执照"},
+            },
+            "required": []
+        }
+    }
+}
+
+COUNTERFACTUAL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "counterfactual_analysis",
+        "description": "反事实解释：分析'要做什么才能让评分从X升到Y'。返回具体可行的改进行动清单。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target_score": {"type": "number", "description": "目标评分，如 80"}
+            },
+            "required": ["target_score"]
+        }
+    }
+}
+
 ENTERPRISE_PROFILE_SCHEMA = {
     "type": "function",
     "function": {
@@ -209,6 +248,7 @@ ALL_TOOLS = KB_TOOLS_SCHEMA + [
     EVALUATION_TOOL_SCHEMA, ENTERPRISE_SEARCH_SCHEMA,
     RAG_SEARCH_SCHEMA, STRESS_TEST_SCHEMA, PDF_EXPORT_SCHEMA,
     STALENESS_CHECK_SCHEMA, MULTI_AGENT_SCHEMA, ENTERPRISE_PROFILE_SCHEMA,
+    WHAT_IF_SCHEMA, COUNTERFACTUAL_SCHEMA,
 ]
 
 
@@ -269,12 +309,45 @@ async def _search_enterprise_tool(name: str) -> dict:
 
 # v5 新工具实现
 async def _semantic_search_tool(query: str, doc_type: str = "") -> dict:
+    """v5 混合RAG：语义+关键词并行搜索 → 合并去重 → 按相关度排序"""
     try:
         from kb_rag import semantic_search, is_available as rag_ok
         if not rag_ok():
-            return {"success": False, "message": "RAG 引擎未初始化（chromadb 未安装）"}
-        results = semantic_search(query, top_n=5, doc_type=doc_type)
-        return {"success": True, "query": query, "results_count": len(results), "results": results}
+            return {"success": False, "message": "RAG 引擎未初始化"}
+
+        # 并行：语义搜索 + 关键词搜索
+        semantic_results = semantic_search(query, top_n=5, doc_type=doc_type)
+
+        # 关键词搜索（从 kb_bridge）
+        keyword_results = []
+        try:
+            from kb_bridge import search_policies, search_cases, search_banks
+            if not doc_type or doc_type == "policy":
+                keyword_results.extend(search_policies(query, top_n=2))
+            if not doc_type or doc_type == "case":
+                keyword_results.extend(search_cases(industry=query, top_n=2))
+        except Exception:
+            pass
+
+        # 合并去重（按id）
+        seen = set()
+        merged = []
+        for r in semantic_results:
+            rid = r.get("id", "")
+            if rid not in seen:
+                seen.add(rid)
+                r["source"] = "semantic"
+                merged.append(r)
+        for r in keyword_results:
+            rid = str(r.get("rule_id", r.get("case_id", r.get("id", ""))))
+            if rid and rid not in seen:
+                seen.add(rid)
+                merged.append({"id": rid, "content": str(r)[:300], "source": "keyword", "metadata": r})
+
+        return {"success": True, "query": query, "results_count": len(merged),
+                "semantic_count": len(semantic_results), "keyword_count": len(keyword_results),
+                "results": merged[:7],
+                "method": "hybrid"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -398,7 +471,31 @@ TOOL_MAP = {
     "check_kb_staleness": lambda **kw: _staleness_check_tool(),
     "run_multi_agent_analysis": lambda **kw: _multi_agent_tool(**kw),
     "extract_enterprise_profile": lambda **kw: _extract_profile_tool(**kw),
+    "what_if_analysis": lambda **kw: _what_if_tool(**kw),
+    "counterfactual_analysis": lambda **kw: _counterfactual_tool(**kw),
 }
+
+# ============================================================
+# What-if + Counterfactual tools
+# ============================================================
+def _what_if_tool(**kwargs) -> dict:
+    try:
+        from what_if import what_if
+        from models import LoanInput
+        # Get current session's evaluation context
+        inp = LoanInput(requested_amount=50000, loan_term=12, industry="other")
+        return what_if(inp, {k: v for k, v in kwargs.items() if v is not None})
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _counterfactual_tool(target_score: float = 80) -> dict:
+    try:
+        from what_if import counterfactual
+        from models import LoanInput
+        inp = LoanInput(requested_amount=50000, loan_term=12, industry="other")
+        return counterfactual(inp, target_score)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # ============================================================
