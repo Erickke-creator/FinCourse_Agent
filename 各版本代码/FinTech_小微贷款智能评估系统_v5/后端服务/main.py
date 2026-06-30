@@ -375,6 +375,40 @@ async def sync_banks():
 # ============================================================
 # v5: 评分历史
 # ============================================================
+# ============================================================
+# v5: 还款计划表
+# ============================================================
+@app.get("/api/repayment-schedule")
+async def repayment_schedule(amount: float = 100000, rate: float = 6.0, term: int = 12):
+    """生成等额本息还款计划表"""
+    monthly_rate = rate / 100 / 12
+    if monthly_rate > 0:
+        monthly_payment = amount * monthly_rate * (1 + monthly_rate) ** term / ((1 + monthly_rate) ** term - 1)
+    else:
+        monthly_payment = amount / term
+    schedule = []
+    balance = amount
+    total_interest = 0
+    for i in range(1, term + 1):
+        interest = balance * monthly_rate
+        principal = monthly_payment - interest
+        balance -= principal
+        total_interest += interest
+        schedule.append({
+            "month": i, "payment": round(monthly_payment, 2),
+            "principal": round(principal, 2), "interest": round(interest, 2),
+            "balance": round(max(balance, 0), 2),
+            "cumulative_interest": round(total_interest, 2),
+        })
+    return {
+        "success": True,
+        "amount": amount, "annual_rate": rate, "term_months": term,
+        "monthly_payment": round(monthly_payment, 2),
+        "total_interest": round(total_interest, 2),
+        "total_payment": round(monthly_payment * term, 2),
+        "schedule": schedule,
+    }
+
 @app.get("/api/scores/history")
 async def score_history(session_id: str = "", limit: int = 5):
     """获取最近评分历史（用于对比）"""

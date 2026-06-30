@@ -15,6 +15,7 @@ import BankMatchPanel from './components/BankMatchPanel';
 import SupplyChainGraph from './components/SupplyChainGraph';
 import ChatPanel from './components/ChatPanel';
 import InclusiveFinanceSlide from './components/InclusiveFinanceSlide';
+import RepaymentSchedule from './components/RepaymentSchedule';
 
 import {
   Calculator, FileText, BarChart3, Building2, Landmark,
@@ -129,13 +130,14 @@ const DEMO_CASES: Record<string, { label: string; icon: any; desc: string; data:
 // ============================================================
 // 导航定义
 // ============================================================
-type NavSection = 'chat' | 'input' | 'risk' | 'banks' | 'network' | 'materials' | 'about';
+type NavSection = 'chat' | 'input' | 'risk' | 'banks' | 'repay' | 'network' | 'materials' | 'about';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: any; desc?: string }[] = [
   { id: 'chat', label: '智能对话', icon: Sparkles, desc: 'AI贷款顾问' },
   { id: 'input', label: '企业信息', icon: FileText, desc: '经营数据录入' },
   { id: 'risk', label: '风险评估', icon: BarChart3, desc: '信用评分诊断' },
   { id: 'banks', label: '银行匹配', icon: Landmark, desc: '26行通过率预测' },
+  { id: 'repay', label: '还款计划', icon: BarChart3, desc: '逐月明细' },
   { id: 'network', label: '关系网络', icon: ShoppingCart, desc: '供应链图谱' },
   { id: 'materials', label: '材料清单', icon: ClipboardCheck, desc: '申贷材料准备' },
   { id: 'about', label: '普惠金融', icon: BookOpen, desc: 'FinTech理论' },
@@ -291,6 +293,8 @@ export default function App() {
           : <div className="text-center py-20 text-slate-400">请先完成评估</div>;
       case 'chat':
         return <ChatPanel onAutofill={(data) => { setInputs(prev => ({ ...prev, ...data })); setActiveNav('input'); }} />;
+      case 'repay':
+        return <RepaymentSchedule amount={inputs.requestedAmount} rate={inputs.annualRate || 6.0} term={inputs.loanTerm} monthlyPayment={evaluationResult.monthlyRepayment} />;
       case 'network':
         return <SupplyChainGraph input={inputs} />;
       case 'materials':
