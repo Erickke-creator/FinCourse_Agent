@@ -5,7 +5,8 @@ Run with: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from models import (
     LoanInput, EvaluationResult, ApiResponse, BankProductResponse
 )
@@ -35,11 +36,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get("/")
-async def root():
-    return {"service": "小微贷款智能评估助手 API", "version": "2.0.0", "status": "running"}
 
 
 @app.get("/api/health")
@@ -517,6 +513,21 @@ async def log_requests(request: Request, call_next):
         print(f"[API] {request.method} {request.url.path} → {response.status_code} ({elapsed:.0f}ms)")
     return response
 
+
+# ============================================================
+# v5: 静态前端托管（SPA fallback）
+# ============================================================
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
+
+if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    print(f"[Static] Frontend mounted from {STATIC_DIR}")
 
 if __name__ == "__main__":
     import uvicorn
