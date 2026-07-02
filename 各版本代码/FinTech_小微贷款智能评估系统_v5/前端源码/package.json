@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "preinstall": "rm -rf node_modules || true",
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "./node_modules/.bin/vite --port=3000 --host=0.0.0.0",
+    "build": "./node_modules/.bin/vite build",
+    "preview": "./node_modules/.bin/vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
   },
